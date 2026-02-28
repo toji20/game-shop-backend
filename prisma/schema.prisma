@@ -1,0 +1,244 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id String @id @default(cuid())
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  email    String  @unique
+  password String?
+
+  name    String @default("Не указано")
+  picture String @default("/uploads/no-user-image.png")
+
+  role Role @default(USER)
+
+  favorites   Game[]       @relation("UserFavorites")
+  reviews     Review[]
+  orders      Order[]
+  steamOrders SteamOrder[]
+
+  @@map("user")
+}
+
+model Banner {
+  id          Int      @id @default(autoincrement())
+  
+  title       String
+  description String
+
+  images String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Game {
+  id          Int      @id @default(autoincrement())
+  donateHubId Int      @unique
+  name        String
+  slug        String   @unique
+  discount    Decimal?
+  image       String?
+  isActive    Boolean  @default(true)
+
+  category   Category? @relation(fields: [categoryId], references: [id])
+  categoryId String?
+
+  favoritedBy User[]      @relation("UserFavorites")
+  reviews     Review[]
+  orderItems  OrderItem[]
+
+  fields    GameField[]
+  servers   GameServer[]
+  positions Position[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Position {
+  id                  Int     @id @default(autoincrement())
+  donateHubPositionId Int?     @unique
+  name                String
+  price               Decimal?
+  myPrice             Decimal
+  image               String?
+  isActive            Boolean @default(true)
+
+  game   Game @relation(fields: [gameId], references: [id])
+  gameId Int
+
+  orderItems OrderItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model GameField {
+  id       Int     @id @default(autoincrement())
+  label    String
+  required Boolean @default(true)
+
+  game   Game @relation(fields: [gameId], references: [id])
+  gameId Int
+}
+
+model GameServer {
+  id   Int     @id @default(autoincrement())
+  name String
+  code String?
+
+  game   Game @relation(fields: [gameId], references: [id])
+  gameId Int
+}
+
+model Category {
+  id String @id @default(cuid())
+
+  title       String
+  description String
+
+  games Game[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("category")
+}
+
+model Review {
+  id String @id @default(cuid())
+
+  text   String
+  rating Int
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @map("user_id")
+
+  game   Game @relation(fields: [gameId], references: [id])
+  gameId Int  @map("game_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("review")
+}
+
+model Order {
+  id String @id @default(cuid())
+
+  status EnumOrderStatus @default(PENDING)
+  type OrderType?
+
+  items OrderItem[]
+  total Decimal
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @map("user_id")
+
+  manualStatus     ManualStatus? @map("manual_status")
+
+  twoFaCode        String?   @map("two_fa_code")
+  twoFaRequestedAt DateTime? @map("two_fa_requested_at")
+  twoFaProvidedAt  DateTime? @map("two_fa_provided_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("order")
+}
+
+model OrderItem {
+  id String @id @default(cuid())
+
+  order   Order  @relation(fields: [orderId], references: [id])
+  orderId String @map("order_id")
+
+  game   Game @relation(fields: [gameId], references: [id])
+  gameId Int  @map("game_id")
+
+  position   Position @relation(fields: [positionId], references: [id])
+  positionId Int      @map("position_id")
+
+  quantity Int
+  price    Decimal
+
+  fields Json? @map("fields")
+
+  donateHubTransactionId String?          @map("donate_hub_transaction_id")
+  donateHubStatus        DonateHubStatus? @map("donate_hub_status")
+  donateHubError         String?          @map("donate_hub_error")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("order_item")
+}
+
+model SteamOrder {
+  id String @id @default(cuid())
+
+  account String 
+  amount  Decimal
+  total   Decimal
+
+  status EnumOrderStatus @default(PENDING)
+
+  donateHubCustomId      String?          @map("donate_hub_custom_id")
+  donateHubTransactionId String?          @map("donate_hub_transaction_id")
+  donateHubStatus        DonateHubStatus? @map("donate_hub_status")
+  donateHubError         String?          @map("donate_hub_error")
+
+  user   User   @relation(fields: [userId], references: [id])
+  userId String @map("user_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("steam_order")
+}
+
+
+enum EnumOrderStatus {
+  PENDING
+  PAID
+  IN_PROCESS
+  COMPLETED
+  CANCELED
+}
+
+enum ManualStatus {
+  PENDING       
+  ASSIGNED      
+  AWAITING_2FA  
+  IN_PROGRESS   
+  COMPLETED     
+  FAILED        
+}
+
+enum Role {
+  USER
+  MANAGER
+  OPERATOR
+  ADMIN
+}
+
+enum DonateHubStatus {
+  SUCCESS
+  FAILED
+  IN_QUEUE
+  PROGRESS
+  WAIT
+}
+
+enum OrderType {
+  AUTO
+  MANUAL
+}

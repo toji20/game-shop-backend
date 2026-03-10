@@ -5,6 +5,10 @@ export class GameDto {
   name: string;
 
   @IsString()
+  @IsOptional()
+  description: string;
+
+  @IsString()
   image: string;
 
   @IsBoolean()

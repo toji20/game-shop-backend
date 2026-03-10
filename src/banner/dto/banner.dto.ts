@@ -13,6 +13,12 @@ export class BannerDto {
   })
   title: string;
 
+  @IsOptional()
+  @IsString({
+    message: 'Ссылка обязательна',
+  })
+  link: string;
+
   @ArrayMinSize(1, {
     message: 'Укажите хотя бы одну картинку',
   })
@@ -22,7 +28,6 @@ export class BannerDto {
   })
   images: string[];
 
-  @IsNotEmpty()
   @IsOptional()
   @IsString()
   description: string;

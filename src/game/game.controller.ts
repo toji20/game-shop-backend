@@ -5,6 +5,8 @@ import {
   Get,
   HttpCode,
   Param,
+  ParseIntPipe,
+  Post,
   Put,
   UsePipes,
   ValidationPipe,
@@ -19,7 +21,7 @@ import { Auth } from 'src/auth/decorators/authorization.decorator';
 export class GameController {
   constructor(private readonly gameService: GameService) {}
 
-  @Get('')
+  @Get()
   async getAll() {
     return this.gameService.getAll();
   }
@@ -28,8 +30,17 @@ export class GameController {
   @CheckRole(Role.ADMIN, Role.MANAGER)
   @UsePipes(new ValidationPipe())
   @HttpCode(200)
+  @Post()
+  async create(@Body() dto: GameDto) {
+    return this.gameService.create(dto);
+  }
+
+  @Auth()
+  @CheckRole(Role.ADMIN, Role.MANAGER)
+  @UsePipes(new ValidationPipe())
+  @HttpCode(200)
   @Put(':id')
-  async update(@Param('id') id: number, @Body() dto: GameDto) {
+  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: GameDto) {
     return this.gameService.update(id, dto);
   }
 
@@ -37,7 +48,7 @@ export class GameController {
   @CheckRole(Role.ADMIN, Role.MANAGER)
   @HttpCode(200)
   @Delete(':id')
-  async delete(@Param('id') id: number) {
+  async delete(@Param('id', ParseIntPipe) id: number) {
     return this.gameService.delete(id);
   }
 }

@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 import { GameFieldService } from './game-field.service';
 import { CheckRole } from 'src/auth/decorators/check-role.decorator';
-import { GameFieldDto } from './dto/game-field.dto';
+import { GameFieldDto, GameFieldUpdateDto } from './dto/game-field.dto';
 import { Auth } from 'src/auth/decorators/authorization.decorator';
 
 @Controller('game-field')
@@ -29,8 +29,8 @@ export class GameFieldController {
   @UsePipes(new ValidationPipe())
   @HttpCode(200)
   @Post()
-  async create(@Param('gameId') gameId: number, @Body() dto: GameFieldDto) {
-    return this.gameFieldService.create(gameId, dto);
+  async create(@Body() dto: GameFieldDto) {
+    return this.gameFieldService.create(dto);
   }
 
   @Auth()
@@ -38,7 +38,7 @@ export class GameFieldController {
   @UsePipes(new ValidationPipe())
   @HttpCode(200)
   @Put(':id')
-  async update(@Param('id') id: number, @Body() dto: GameFieldDto) {
+  async update(@Param('id') id: number, @Body() dto: GameFieldUpdateDto) {
     return this.gameFieldService.update(dto, id);
   }
 

@@ -17,6 +17,18 @@ export class GameService {
     return reviews;
   }
 
+  async create(dto: GameDto) {
+    return this.prisma.game.create({
+      data: {
+        name: dto.name,
+        decription: dto.description,
+        isActive: dto.isActive || true,
+        categoryId: String(dto.categoryId) || null,
+        image: dto.image,
+      },
+    });
+  }
+
   async update(id: number, dto: GameDto) {
     return this.prisma.game.update({
       where: {
@@ -24,6 +36,7 @@ export class GameService {
       },
       data: {
         name: dto.name,
+        decription: dto.description,
         isActive: dto.isActive,
         categoryId: String(dto.categoryId),
         image: dto.image,
@@ -34,7 +47,7 @@ export class GameService {
   async delete(id: number) {
     return this.prisma.game.delete({
       where: {
-        id: id,
+        id: Number(id),
       },
       include: {
         positions: true,

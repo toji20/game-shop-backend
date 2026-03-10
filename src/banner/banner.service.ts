@@ -6,6 +6,16 @@ import { BannerDto } from './dto/banner.dto';
 export class BannerService {
   constructor(private readonly prisma: PrismaService) {}
 
+  async getAll() {
+    const banners = await this.prisma.banner.findMany({});
+    if (!banners) {
+      throw new NotFoundException({
+        message: 'Баннеры не найдены',
+      });
+    }
+    return banners;
+  }
+
   async getById(id: number) {
     const banner = await this.prisma.banner.findUnique({
       where: {
@@ -26,6 +36,7 @@ export class BannerService {
         images: dto.images,
         title: dto.title || '',
         description: dto.description || '',
+        link: dto.link || '',
       },
     });
   }
@@ -40,6 +51,7 @@ export class BannerService {
         images: dto.images,
         title: dto.title || '',
         description: dto.description || '',
+        link: dto.link || '',
       },
     });
   }
@@ -48,7 +60,7 @@ export class BannerService {
     await this.getById(id);
     return this.prisma.banner.delete({
       where: {
-        id: id,
+        id: Number(id),
       },
     });
   }

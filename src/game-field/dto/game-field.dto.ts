@@ -10,3 +10,11 @@ export class GameFieldDto {
   @IsNumber()
   gameId: number;
 }
+
+export class GameFieldUpdateDto {
+  @IsString()
+  label: string;
+
+  @IsBoolean()
+  required: boolean;
+}

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { GameFieldDto } from './dto/game-field.dto';
+import { GameFieldDto, GameFieldUpdateDto } from './dto/game-field.dto';
 
 @Injectable()
 export class GameFieldService {
@@ -18,24 +18,24 @@ export class GameFieldService {
     });
   }
 
-  async create(gameId: number, dto: GameFieldDto) {
+  async create(dto: GameFieldDto) {
     return this.prisma.gameField.create({
       data: {
         label: dto.label,
-        required: dto.required || true,
-        gameId: Number(gameId),
+        required: dto.required ?? true,
+        gameId: Number(dto.gameId),
       },
     });
   }
 
-  async update(dto: GameFieldDto, id: number) {
+  async update(dto: GameFieldUpdateDto, id: number) {
     return this.prisma.gameField.update({
       where: {
         id: Number(id),
       },
       data: {
         label: dto.label,
-        required: dto.required || true,
+        required: dto.required ?? true,
       },
     });
   }

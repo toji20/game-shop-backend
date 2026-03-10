@@ -11,7 +11,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { PositionService } from './position.service';
-import { PositionDto } from './dto/position.dto';
+import { PositionDto, PositionUpdateDto } from './dto/position.dto';
 import { CheckRole } from 'src/auth/decorators/check-role.decorator';
 import { Auth } from 'src/auth/decorators/authorization.decorator';
 
@@ -26,19 +26,19 @@ export class PositionController {
 
   @Auth()
   @CheckRole('ADMIN', 'MANAGER')
-  @UsePipes(new ValidationPipe())
+  @UsePipes(new ValidationPipe({ transform: true }))
   @HttpCode(200)
   @Post()
-  async create(@Param('gameId') gameId: number, @Body() dto: PositionDto) {
-    return this.positionService.create(gameId, dto);
+  async create(@Body() dto: PositionDto) {
+    return this.positionService.create(dto);
   }
 
   @Auth()
   @CheckRole('ADMIN', 'MANAGER')
-  @UsePipes(new ValidationPipe())
+  @UsePipes(new ValidationPipe({ transform: true }))
   @HttpCode(200)
   @Put(':id')
-  async update(@Param('id') id: number, @Body() dto: PositionDto) {
+  async update(@Param('id') id: number, @Body() dto: PositionUpdateDto) {
     return this.positionService.update(id, dto);
   }
 

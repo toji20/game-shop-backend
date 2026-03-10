@@ -33,6 +33,7 @@ model Banner {
   
   title       String
   description String
+  link String?
 
   images String[]
   createdAt DateTime @default(now())
@@ -41,9 +42,10 @@ model Banner {
 
 model Game {
   id          Int      @id @default(autoincrement())
-  donateHubId Int      @unique
+  donateHubId Int?      @unique
   name        String
-  slug        String   @unique
+  decription  String?
+  slug        String?   @unique
   discount    Decimal?
   image       String?
   isActive    Boolean  @default(true)
@@ -74,7 +76,7 @@ model Position {
   isActive            Boolean @default(true)
   isPublic            Boolean? @default(true)
 
-  game   Game @relation(fields: [gameId], references: [id])
+  game   Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
   gameId Int
 
   orderItems OrderItem[]
@@ -88,7 +90,7 @@ model GameField {
   label    String
   required Boolean @default(true)
 
-  game   Game @relation(fields: [gameId], references: [id])
+  game   Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
   gameId Int
 }
 
@@ -97,7 +99,7 @@ model GameServer {
   name String
   code String?
 
-  game   Game @relation(fields: [gameId], references: [id])
+  game   Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
   gameId Int
 }
 
@@ -124,7 +126,7 @@ model Review {
   user   User   @relation(fields: [userId], references: [id])
   userId String @map("user_id")
 
-  game   Game @relation(fields: [gameId], references: [id])
+  game   Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
   gameId Int  @map("game_id")
 
   createdAt DateTime @default(now()) @map("created_at")

@@ -19,6 +19,11 @@ import { Role } from '@prisma/client';
 @Controller('banner')
 export class BannerController {
   constructor(private readonly bannerService: BannerService) {}
+  @Get()
+  async getAll() {
+    return this.bannerService.getAll();
+  }
+
   @Get('by-id/:id')
   async getById(@Param('id') id: number) {
     return this.bannerService.getById(id);

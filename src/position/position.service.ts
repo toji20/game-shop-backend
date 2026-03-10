@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { PositionDto } from './dto/position.dto';
+import { PositionDto, PositionUpdateDto } from './dto/position.dto';
 
 @Injectable()
 export class PositionService {
@@ -14,19 +14,20 @@ export class PositionService {
     });
   }
 
-  async create(gameId: number, dto: PositionDto) {
+  async create(dto: PositionDto) {
     return await this.prisma.position.create({
       data: {
-        gameId: Number(gameId),
+        gameId: Number(dto.gameId),
         myPrice: dto.myPrice,
         name: dto.name,
         image: dto.image,
         isActive: dto.isActive || true,
+        isPublic: dto.isPublic || true,
       },
     });
   }
 
-  async update(id: number, dto: PositionDto) {
+  async update(id: number, dto: PositionUpdateDto) {
     return await this.prisma.position.update({
       where: {
         id: Number(id),
@@ -35,6 +36,7 @@ export class PositionService {
         name: dto.name,
         myPrice: dto.myPrice,
         isActive: dto.isActive,
+        isPublic: dto.isPublic,
         image: dto.image,
       },
     });
@@ -43,7 +45,7 @@ export class PositionService {
   async delete(id: number) {
     return this.prisma.position.delete({
       where: {
-        id: id,
+        id: Number(id),
       },
     });
   }

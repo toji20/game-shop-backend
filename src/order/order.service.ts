@@ -12,6 +12,7 @@ import { PaymentMethod, PaymentStatusDto } from './dto/payment-status.dto';
 import { EnumOrderStatus, ManualStatus, OrderType } from '@prisma/client';
 import { DonatehubGameService } from 'src/donate-hub-game/donate-hub-game.service';
 import { SteamOrderService } from 'src/steam-order/steam-order.service';
+import { OrderGateway } from './order.gateway';
 
 @Injectable()
 export class OrderService {
@@ -23,6 +24,7 @@ export class OrderService {
     private readonly configService: ConfigService,
     private readonly donatehubGameService: DonatehubGameService,
     private readonly steamOrderService: SteamOrderService,
+    private readonly gateway: OrderGateway,
   ) {
     const shopId = this.configService.get<string>('YOOKASSA_SHOP_ID');
     const secretKey = this.configService.get<string>('YOOKASSA_SECRET_KEY');
@@ -152,13 +154,8 @@ export class OrderService {
       `Заказ ${orderId} оплачен, type: ${order.type}, manualStatus: ${order.manualStatus ?? 'n/a'}`,
     );
 
-    // if (isManual) {
-    //   this.gateway.notifyNewManualOrder(order);
-    //   return;
-    // }
-
     if (isManual) {
-      this.logger.log(`Ручной заказ ${orderId} ожидает обработки сотрудником`);
+      this.gateway.notifyNewManualOrder(order);
       return;
     }
 

@@ -8,12 +8,16 @@ import {
 import { EnumOrderStatus, ManualStatus, OrderType } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UpdateManualStatusDto } from './dto/manual-order.dto';
+import { OrderGateway } from 'src/order/order.gateway';
 
 @Injectable()
 export class ManualOrderService {
   private readonly logger = new Logger(ManualOrderService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gateway: OrderGateway,
+  ) {}
 
   async getAll(status?: ManualStatus) {
     return this.prisma.order.findMany({
@@ -91,14 +95,14 @@ export class ManualOrderService {
       `Заказ ${orderId} обновлён: ${order.manualStatus} → ${dto.status}`,
     );
 
-    // // Уведомляем всех операторов что статус изменился
-    // this.gateway.notifyOrderStatusUpdated(order.userId, updated);
+    // Уведомляем всех операторов что статус изменился
+    this.gateway.notifyOrderStatusUpdated(updated);
 
-    // if (dto.status === ManualStatus.COMPLETED) {
-    //   // Уведомляем пользователя что заказ выполнен
-    //   this.gateway.notifyOrderCompleted(order.userId, orderId);
-    //   this.logger.log(`Заказ ${orderId} завершён, уведомление отправлено`);
-    // }
+    if (dto.status === ManualStatus.COMPLETED) {
+      // Уведомляем пользователя что заказ выполнен
+      this.gateway.notifyOrderCompleted(order.userId, orderId);
+      this.logger.log(`Заказ ${orderId} завершён, уведомление отправлено`);
+    }
 
     return updated;
   }
@@ -122,7 +126,8 @@ export class ManualOrderService {
     });
 
     this.logger.log(`2FA запрошен для заказа ${orderId}`);
-
+    this.gateway.notifyOrderStatusUpdated(updated);
+    // Уведомляем пользователя что нужен 2FA код
     return updated;
   }
 
@@ -152,17 +157,17 @@ export class ManualOrderService {
 
     this.logger.log(`2FA код предоставлен для заказа ${orderId}`);
 
-    // // Уведомляем операторов что 2FA получен — список заказов обновится
-    // this.gateway.notifyOrderStatusUpdated(userId, updated);
+    // Уведомляем операторов что 2FA получен — список заказов обновится
+    this.gateway.notifyOrderStatusUpdated(userId);
 
     return { message: '2FA код принят', updated };
   }
 
-  // // Вызывается из OrderService после успешной оплаты ручного заказа
-  // async notifyNewOrder(order: any) {
-  //   this.gateway.notifyNewManualOrder(order);
-  //   this.logger.log(`Новый ручной заказ ${order.id} — уведомление операторам`);
-  // }
+  // Вызывается из OrderService после успешной оплаты ручного заказа
+  async notifyNewOrder(order: any) {
+    this.gateway.notifyNewManualOrder(order);
+    this.logger.log(`Новый ручной заказ ${order.id} — уведомление операторам`);
+  }
 
   private validateStatusTransition(
     // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents

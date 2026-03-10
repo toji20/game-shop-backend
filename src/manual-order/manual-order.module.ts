@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
-import { ManualOrderService } from './manual-order.service';
 import { ManualOrderController } from './manual-order.controller';
-import { PrismaService } from 'src/prisma/prisma.service';
+import { ManualOrderService } from './manual-order.service';
+import { PrismaModule } from 'src/prisma/prisma.module';
 
 @Module({
+  imports: [PrismaModule],
   controllers: [ManualOrderController],
-  providers: [ManualOrderService, PrismaService],
+  providers: [ManualOrderService],
+  exports: [ManualOrderService],
 })
 export class ManualOrderModule {}

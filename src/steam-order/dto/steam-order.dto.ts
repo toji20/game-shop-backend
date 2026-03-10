@@ -8,6 +8,9 @@ export class SteamOrderDto {
   @Type(() => Number)
   @IsNumber({}, { message: 'Сумма должна быть числом' })
   @Min(1, { message: 'Минимальная сумма пополнения: 1' })
-  @Max(1000, { message: 'Максимальная сумма пополнения: 1000' })
+  @Max(100000, { message: 'Максимальная сумма пополнения: 100000' })
   amount: number;
+
+  @Type(() => Number)
+  amountRub: number;
 }

@@ -19,7 +19,7 @@ import { Auth } from 'src/auth/decorators/authorization.decorator';
 export class GameController {
   constructor(private readonly gameService: GameService) {}
 
-  @Get('all-reviews')
+  @Get('')
   async getAll() {
     return this.gameService.getAll();
   }

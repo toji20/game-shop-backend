@@ -19,8 +19,7 @@ export class ManualOrderService {
     return this.prisma.order.findMany({
       where: {
         type: OrderType.MANUAL,
-        status: EnumOrderStatus.PAID, // только оплаченные
-        manualStatus: status ?? ManualStatus.PENDING,
+        status: EnumOrderStatus.PAID,
         ...(status ? { manualStatus: status } : {}),
       },
       include: {
@@ -38,7 +37,7 @@ export class ManualOrderService {
           },
         },
       },
-      orderBy: { createdAt: 'asc' }, // сначала старые — очередь
+      orderBy: { createdAt: 'asc' },
     });
   }
 
@@ -73,7 +72,6 @@ export class ManualOrderService {
   async updateStatus(orderId: string, dto: UpdateManualStatusDto) {
     const order = await this.getById(orderId);
 
-    // Валидация переходов статусов
     this.validateStatusTransition(order.manualStatus, dto.status);
 
     const updated = await this.prisma.order.update({
@@ -93,6 +91,15 @@ export class ManualOrderService {
       `Заказ ${orderId} обновлён: ${order.manualStatus} → ${dto.status}`,
     );
 
+    // // Уведомляем всех операторов что статус изменился
+    // this.gateway.notifyOrderStatusUpdated(order.userId, updated);
+
+    // if (dto.status === ManualStatus.COMPLETED) {
+    //   // Уведомляем пользователя что заказ выполнен
+    //   this.gateway.notifyOrderCompleted(order.userId, orderId);
+    //   this.logger.log(`Заказ ${orderId} завершён, уведомление отправлено`);
+    // }
+
     return updated;
   }
 
@@ -110,13 +117,11 @@ export class ManualOrderService {
       data: {
         manualStatus: ManualStatus.AWAITING_2FA,
         twoFaRequestedAt: new Date(),
-        twoFaCode: null, // сбрасываем старый код если был
+        twoFaCode: null,
       },
     });
 
     this.logger.log(`2FA запрошен для заказа ${orderId}`);
-
-    // TODO: отправить уведомление пользователю (email/push)
 
     return updated;
   }
@@ -141,14 +146,23 @@ export class ManualOrderService {
       data: {
         twoFaCode: code,
         twoFaProvidedAt: new Date(),
-        manualStatus: ManualStatus.IN_PROGRESS, // возвращаем в работу
+        manualStatus: ManualStatus.IN_PROGRESS,
       },
     });
 
     this.logger.log(`2FA код предоставлен для заказа ${orderId}`);
 
+    // // Уведомляем операторов что 2FA получен — список заказов обновится
+    // this.gateway.notifyOrderStatusUpdated(userId, updated);
+
     return { message: '2FA код принят', updated };
   }
+
+  // // Вызывается из OrderService после успешной оплаты ручного заказа
+  // async notifyNewOrder(order: any) {
+  //   this.gateway.notifyNewManualOrder(order);
+  //   this.logger.log(`Новый ручной заказ ${order.id} — уведомление операторам`);
+  // }
 
   private validateStatusTransition(
     // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents

@@ -1,4 +1,4 @@
-import { NestFactory } from '@nestjs/core';
+import { HttpAdapterHost, NestFactory } from '@nestjs/core';
 import cookieParser from 'cookie-parser';
 import { AppModule } from './app.module';
 
@@ -10,6 +10,8 @@ async function bootstrap() {
     credentials: true,
     exposeHeaders: 'set-cookie',
   });
+
+  app.get(HttpAdapterHost);
 
   await app.listen(process.env.SERVER_PORT ?? 5000);
 }

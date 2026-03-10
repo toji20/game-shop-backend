@@ -32,6 +32,6 @@ export class SteamOrderController {
     @Body() dto: SteamOrderDto & { customId: string },
     @CurrentUser('id') userId: string,
   ) {
-    return this.steamOrderService.createPayment(dto, dto.customId, userId);
+    return this.steamOrderService.createPayment(dto, userId);
   }
 }

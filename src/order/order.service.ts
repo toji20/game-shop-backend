@@ -152,6 +152,11 @@ export class OrderService {
       `Заказ ${orderId} оплачен, type: ${order.type}, manualStatus: ${order.manualStatus ?? 'n/a'}`,
     );
 
+    // if (isManual) {
+    //   this.gateway.notifyNewManualOrder(order);
+    //   return;
+    // }
+
     if (isManual) {
       this.logger.log(`Ручной заказ ${orderId} ожидает обработки сотрудником`);
       return;

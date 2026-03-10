@@ -27,20 +27,53 @@ export class SteamOrderService {
   }
 
   async checkAccount(dto: SteamOrderDto) {
-    return this.donatehubSteamService.checkSteamOrder(dto.account, dto.amount);
-  }
-
-  async createPayment(dto: SteamOrderDto, customId: string, userId: string) {
     const check = await this.donatehubSteamService.checkSteamOrder(
       dto.account,
       dto.amount,
     );
 
+    const rate = await this.donatehubSteamService.getUsdtToRubRate();
+    const totalRub = +(check.total * rate).toFixed(2);
+
+    this.logger.log(
+      `Steam check: ${dto.amount} USDT → total DonateHub: ${check.total} USDT → ${totalRub} RUB (курс ${rate})`,
+    );
+
+    return {
+      custom_id: check.custom_id,
+      total: check.total,
+      totalRub,
+      rate,
+    };
+  }
+
+  async createPayment(dto: SteamOrderDto, userId: string) {
+    const commission =
+      this.configService.get<number>('STEAM_COMMISSION') ?? 1.06;
+    const rate = await this.donatehubSteamService.getUsdtToRubRate();
+
+    const amountUsdt = +(dto.amountRub / rate).toFixed(2);
+
+    this.logger.log(
+      `Steam: ${dto.amountRub} RUB → ${amountUsdt} USDT (курс ${rate})`,
+    );
+
+    const check = await this.donatehubSteamService.checkSteamOrder(
+      dto.account,
+      amountUsdt,
+    );
+
+    const totalRub = +(check.total * rate * commission).toFixed(2);
+
+    this.logger.log(
+      `Steam: ${dto.amountRub} RUB → ${amountUsdt} USDT → ${check.total} USDT (DonateHub) → ${totalRub} RUB (с комиссией x${commission})`,
+    );
+
     const steamOrder = await this.prisma.steamOrder.create({
       data: {
         account: dto.account,
-        amount: dto.amount,
-        total: check.total,
+        amount: amountUsdt,
+        total: totalRub,
         status: EnumOrderStatus.PENDING,
         donateHubCustomId: check.custom_id,
         user: { connect: { id: userId } },
@@ -48,7 +81,7 @@ export class SteamOrderService {
     });
 
     const payment = await this.checkout.createPayment({
-      amount: { value: Number(check.total).toFixed(2), currency: 'RUB' },
+      amount: { value: totalRub.toFixed(2), currency: 'RUB' },
       capture: true,
       payment_method_data: { type: 'bank_card' },
       confirmation: {

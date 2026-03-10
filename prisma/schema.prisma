@@ -47,6 +47,7 @@ model Game {
   discount    Decimal?
   image       String?
   isActive    Boolean  @default(true)
+  isPublic    Boolean? @default(true)
 
   category   Category? @relation(fields: [categoryId], references: [id])
   categoryId String?
@@ -71,6 +72,7 @@ model Position {
   myPrice             Decimal
   image               String?
   isActive            Boolean @default(true)
+  isPublic            Boolean? @default(true)
 
   game   Game @relation(fields: [gameId], references: [id])
   gameId Int
@@ -188,6 +190,7 @@ model SteamOrder {
   account String 
   amount  Decimal
   total   Decimal
+  commission Int?
 
   status EnumOrderStatus @default(PENDING)
 

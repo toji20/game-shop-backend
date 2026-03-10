@@ -17,6 +17,7 @@ import { BannerModule } from './banner/banner.module';
 import { OrderApiModule } from './order-api/order-api.module';
 import { ManualOrderModule } from './manual-order/manual-order.module';
 import { GameFieldModule } from './game-field/game-field.module';
+import { StatisticsModule } from './statistics/statistics.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { GameFieldModule } from './game-field/game-field.module';
     OrderApiModule,
     ManualOrderModule,
     GameFieldModule,
+    StatisticsModule,
   ],
 })
 export class AppModule {}

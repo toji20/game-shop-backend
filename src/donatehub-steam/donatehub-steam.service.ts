@@ -25,6 +25,24 @@ export class DonatehubSteamService {
     };
   }
 
+  async getUsdtToRubRate(): Promise<number> {
+    try {
+      const response = await fetch(`${this.baseUrl}/steam_course`, {
+        headers: this.headers,
+      });
+      const data = await response.json();
+      const rate = data['USD:RUB'];
+
+      if (!rate) throw new Error('USD:RUB не найден в ответе');
+
+      this.logger.log(`Курс USD:RUB от DonateHub: ${rate}`);
+      return rate;
+    } catch (err) {
+      this.logger.error('Не удалось получить курс от DonateHub:', err);
+      return 90;
+    }
+  }
+
   async checkSteamOrder(account: string, amount: number) {
     const url = new URL(`${this.baseUrl}/create_steam_order`);
     url.searchParams.set('account', account);
@@ -49,7 +67,7 @@ export class DonatehubSteamService {
     }
 
     this.logger.log(
-      `Steam check OK: custom_id=${data.custom_id}, total=${data.total}`,
+      `Steam check OK: custom_id=${data.custom_id}, total=${data.total} USDT`,
     );
     return data as { custom_id: string; total: number };
   }

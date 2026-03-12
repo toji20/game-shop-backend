@@ -24,6 +24,7 @@ model User {
   reviews     Review[]
   orders      Order[]
   steamOrders SteamOrder[]
+  promoCodes PromoCodeUse[]
 
   @@map("user")
 }
@@ -48,8 +49,10 @@ model Game {
   slug        String?   @unique
   discount    Decimal?
   image       String?
+
   isActive    Boolean  @default(true)
   isPublic    Boolean? @default(true)
+  type OrderType? @default(AUTO)
 
   category   Category? @relation(fields: [categoryId], references: [id])
   categoryId String?
@@ -153,6 +156,8 @@ model Order {
   twoFaRequestedAt DateTime? @map("two_fa_requested_at")
   twoFaProvidedAt  DateTime? @map("two_fa_provided_at")
 
+  promoCodes PromoCodeUse?
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
@@ -208,6 +213,32 @@ model SteamOrder {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("steam_order")
+}
+
+model PromoCode {
+    id         String         @id @default(cuid())
+    code       String         @unique
+    discount   Int
+    isActive   Boolean        @default(true)
+    usageLimit Int?
+    usageCount Int            @default(0)
+    expiresAt  DateTime?
+    uses       PromoCodeUse[]
+    createdAt  DateTime       @default(now())
+    updatedAt  DateTime       @updatedAt
+}
+
+model PromoCodeUse {
+    id          String    @id @default(cuid())
+    promoCode   PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+    promoCodeId String
+    user        User      @relation(fields: [userId], references: [id])
+    userId      String
+    order       Order?    @relation(fields: [orderId], references: [id])
+    orderId     String?   @unique 
+    createdAt   DateTime  @default(now())
+
+    @@unique([promoCodeId, userId])
 }
 
 

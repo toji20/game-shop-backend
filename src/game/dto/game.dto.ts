@@ -1,8 +1,13 @@
-import { IsBoolean, IsOptional, IsString } from 'class-validator';
+import { OrderType } from '@prisma/client';
+import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
 
 export class GameDto {
   @IsString()
   name: string;
+
+  @IsOptional()
+  @IsString()
+  slug: string;
 
   @IsString()
   @IsOptional()
@@ -17,4 +22,10 @@ export class GameDto {
   @IsString()
   @IsOptional()
   categoryId: string;
+
+  @IsEnum(OrderType, {
+    message:
+      'Статус должен быть одним из: ' + Object.values(OrderType).join(', '),
+  })
+  type: OrderType;
 }

@@ -21,10 +21,12 @@ export class GameService {
     return this.prisma.game.create({
       data: {
         name: dto.name,
+        slug: dto.slug,
         decription: dto.description,
         isActive: dto.isActive || true,
         categoryId: String(dto.categoryId) || null,
         image: dto.image,
+        type: dto.type,
       },
     });
   }
@@ -36,10 +38,12 @@ export class GameService {
       },
       data: {
         name: dto.name,
+        slug: dto.slug,
         decription: dto.description,
         isActive: dto.isActive,
         categoryId: String(dto.categoryId),
         image: dto.image,
+        type: dto.type,
       },
     });
   }

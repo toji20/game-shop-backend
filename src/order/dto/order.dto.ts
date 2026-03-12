@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsObject,
   IsOptional,
+  IsString,
   ValidateNested,
 } from 'class-validator';
 import { PaymentMethod } from './payment-status.dto';
@@ -31,9 +32,14 @@ export class OrderDto {
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
   items: OrderItemDto[];
+
   @IsOptional()
   @IsEnum(OrderType)
   type: OrderType;
+
+  @IsOptional()
+  @IsString()
+  promoCode?: string;
 }
 
 export class OrderItemDto {

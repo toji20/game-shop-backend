@@ -68,7 +68,11 @@ export class PromoController {
   }
 
   // ── Для авторизованных пользователей ──────────────────────────────────────
-
+  @Auth()
+  @Get('check/:code')
+  async check(@Param('code') code: string, @CurrentUser('id') userId: string) {
+    return this.promoService.check(code, userId);
+  }
   // Проверить промокод перед оформлением заказа
   @Auth()
   @UsePipes(new ValidationPipe())

@@ -16,7 +16,7 @@ model User {
   password String?
 
   name    String @default("Не указано")
-  picture String @default("/uploads/no-user-image.png")
+  picture String @default("/no-user-image.png")
 
   role Role @default(USER)
 
@@ -41,6 +41,20 @@ model Banner {
   updatedAt DateTime @updatedAt
 }
 
+model AdBanner {
+  id          Int      @id @default(autoincrement())
+  
+  title       String
+  description String
+  link String?
+
+  isActive Boolean? @default(true)
+
+  image String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Game {
   id          Int      @id @default(autoincrement())
   donateHubId Int?      @unique
@@ -48,7 +62,15 @@ model Game {
   decription  String?
   slug        String?   @unique
   discount    Decimal?
-  image       String?
+  image       String[]
+
+  releaseDate String?
+  ageLimit String?
+  genre String?
+
+  warning String?
+
+  instructions String[]
 
   isActive    Boolean  @default(true)
   isPublic    Boolean? @default(true)
@@ -75,6 +97,7 @@ model Position {
   name                String
   price               Decimal?
   myPrice             Decimal
+  discount            Int?
   image               String?
   isActive            Boolean @default(true)
   isPublic            Boolean? @default(true)
@@ -147,8 +170,8 @@ model Order {
   items OrderItem[]
   total Decimal
 
-  user   User   @relation(fields: [userId], references: [id])
-  userId String @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id])
+  userId String? @map("user_id")
 
   manualStatus     ManualStatus? @map("manual_status")
 
@@ -206,8 +229,8 @@ model SteamOrder {
   donateHubStatus        DonateHubStatus? @map("donate_hub_status")
   donateHubError         String?          @map("donate_hub_error")
 
-  user   User   @relation(fields: [userId], references: [id])
-  userId String @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id])
+  userId String? @map("user_id")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsBoolean, IsNumber, IsString } from 'class-validator';
+import { IsBoolean, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class PositionDto {
   @IsString()
@@ -20,6 +20,10 @@ export class PositionDto {
   @Type(() => Number)
   @IsNumber()
   gameId: number;
+
+  @IsOptional()
+  @IsNumber()
+  discount: number;
 }
 
 export class PositionUpdateDto {
@@ -37,4 +41,8 @@ export class PositionUpdateDto {
 
   @IsBoolean()
   isActive: boolean;
+
+  @IsOptional()
+  @IsNumber()
+  discount: number;
 }

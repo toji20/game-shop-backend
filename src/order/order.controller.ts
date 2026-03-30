@@ -3,24 +3,27 @@ import {
   Controller,
   HttpCode,
   Post,
+  Req,
+  UseGuards,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { OrderService } from './order.service';
-import { Auth } from 'src/auth/decorators/authorization.decorator';
 import { OrderDto } from './dto/order.dto';
-import { CurrentUser } from 'src/user/decorators/user.decorator';
 import { PaymentStatusDto } from './dto/payment-status.dto';
+import { OptionalJwtGuard } from 'src/auth/guards/optional-jwt.guard';
 
 @Controller('orders')
 export class OrderController {
   constructor(private readonly orderService: OrderService) {}
 
+  @UseGuards(OptionalJwtGuard)
   @UsePipes(new ValidationPipe())
   @HttpCode(200)
   @Post('place')
-  @Auth()
-  async checkout(@Body() dto: OrderDto, @CurrentUser('id') userId: string) {
+  async checkout(@Body() dto: OrderDto, @Req() req: Request) {
+    const userId = (req as any).user?.id ?? null;
     return this.orderService.createPayment(dto, userId);
   }
 

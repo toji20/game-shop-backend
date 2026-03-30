@@ -4,7 +4,7 @@ import { EnumOrderStatus } from '@prisma/client';
 import { YooCheckout } from '@a2seven/yoo-checkout';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { DonatehubSteamService } from 'src/donatehub-steam/donatehub-steam.service';
-import { SteamOrderDto } from './dto/steam-order.dto';
+import { SteamCheckDto, SteamOrderDto } from './dto/steam-order.dto';
 
 @Injectable()
 export class SteamOrderService {
@@ -26,7 +26,7 @@ export class SteamOrderService {
     this.checkout = new YooCheckout({ shopId, secretKey });
   }
 
-  async checkAccount(dto: SteamOrderDto) {
+  async checkAccount(dto: SteamCheckDto) {
     const check = await this.donatehubSteamService.checkSteamOrder(
       dto.account,
       dto.amount,
@@ -47,7 +47,7 @@ export class SteamOrderService {
     };
   }
 
-  async createPayment(dto: SteamOrderDto, userId: string) {
+  async createPayment(dto: SteamOrderDto, userId: string | null) {
     const commission =
       this.configService.get<number>('STEAM_COMMISSION') ?? 1.06;
     const rate = await this.donatehubSteamService.getUsdtToRubRate();
@@ -76,7 +76,8 @@ export class SteamOrderService {
         total: totalRub,
         status: EnumOrderStatus.PENDING,
         donateHubCustomId: check.custom_id,
-        user: { connect: { id: userId } },
+        // userId опциональный — гость или авторизованный
+        userId: userId ?? undefined,
       },
     });
 

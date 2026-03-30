@@ -7,15 +7,13 @@ export class PositionService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getByGameId(gameId: number) {
-    return await this.prisma.position.findMany({
-      where: {
-        gameId: Number(gameId),
-      },
+    return this.prisma.position.findMany({
+      where: { gameId: Number(gameId) },
     });
   }
 
   async create(dto: PositionDto) {
-    return await this.prisma.position.create({
+    return this.prisma.position.create({
       data: {
         gameId: Number(dto.gameId),
         myPrice: dto.myPrice,
@@ -23,30 +21,28 @@ export class PositionService {
         image: dto.image,
         isActive: dto.isActive || true,
         isPublic: dto.isPublic || true,
+        discount: dto.discount,
       },
     });
   }
 
   async update(id: number, dto: PositionUpdateDto) {
-    return await this.prisma.position.update({
-      where: {
-        id: Number(id),
-      },
+    return this.prisma.position.update({
+      where: { id: Number(id) },
       data: {
         name: dto.name,
         myPrice: dto.myPrice,
         isActive: dto.isActive,
         isPublic: dto.isPublic,
         image: dto.image,
+        discount: dto.discount,
       },
     });
   }
 
   async delete(id: number) {
     return this.prisma.position.delete({
-      where: {
-        id: Number(id),
-      },
+      where: { id: Number(id) },
     });
   }
 }

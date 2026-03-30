@@ -1,5 +1,4 @@
 services:
-
   postgres:
     container_name: game-shop
     image: postgres:latest
@@ -19,4 +18,3 @@ volumes:
 
 networks:
   nestjs-shop:
-      

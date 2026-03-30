@@ -13,6 +13,7 @@ import { EnumOrderStatus, ManualStatus, OrderType } from '@prisma/client';
 import { DonatehubGameService } from 'src/donate-hub-game/donate-hub-game.service';
 import { SteamOrderService } from 'src/steam-order/steam-order.service';
 import { OrderGateway } from './order.gateway';
+import { PromoService } from 'src/promo/promo.service';
 
 @Injectable()
 export class OrderService {
@@ -25,6 +26,7 @@ export class OrderService {
     private readonly donatehubGameService: DonatehubGameService,
     private readonly steamOrderService: SteamOrderService,
     private readonly gateway: OrderGateway,
+    private readonly promoService: PromoService,
   ) {
     const shopId = this.configService.get<string>('YOOKASSA_SHOP_ID');
     const secretKey = this.configService.get<string>('YOOKASSA_SECRET_KEY');
@@ -36,26 +38,61 @@ export class OrderService {
     this.checkout = new YooCheckout({ shopId, secretKey });
   }
 
-  async createPayment(dto: OrderDto, userId: string) {
-    const total = dto.items.reduce(
+  async createPayment(dto: OrderDto, userId: string | null) {
+    let total = dto.items.reduce(
       (acc, item) => acc + item.price * item.quantity,
       0,
     );
 
-    const orderItemsData = dto.items.map((item: OrderItemDto) => ({
-      quantity: item.quantity,
-      price: item.price,
-      fields: item.fields ?? {},
-      game: { connect: { id: Number(item.gameId) } },
-      position: { connect: { id: Number(item.positionId) } },
-    }));
+    let promoCodeId: string | null = null;
+
+    if (dto.promoCode && userId) {
+      const promo = await this.promoService.apply(
+        { code: dto.promoCode },
+        userId,
+      );
+      total = total * (1 - promo.discount / 100);
+      promoCodeId = promo.id;
+      this.logger.log(
+        `Промокод ${promo.code} применён, скидка ${promo.discount}%, итого: ${total}`,
+      );
+    }
+
+    // Загружаем поля всех игр из заказа для маппинга id -> label
+    const gameIds = [...new Set(dto.items.map((i) => Number(i.gameId)))];
+    const allGameFields = await this.prisma.gameField.findMany({
+      where: { gameId: { in: gameIds } },
+    });
+
+    const orderItemsData = dto.items.map((item: OrderItemDto) => {
+      // Маппим { fieldId: value } -> { label: value }
+      const mappedFields: Record<string, string> = {};
+
+      if (item.fields && Object.keys(item.fields).length > 0) {
+        const gameFields = allGameFields.filter(
+          (f) => f.gameId === Number(item.gameId),
+        );
+        for (const [fieldId, value] of Object.entries(item.fields)) {
+          const field = gameFields.find((f) => f.id === Number(fieldId));
+          mappedFields[field ? field.label : fieldId] = value;
+        }
+      }
+
+      return {
+        quantity: item.quantity,
+        price: item.price,
+        fields: mappedFields,
+        game: { connect: { id: Number(item.gameId) } },
+        position: { connect: { id: Number(item.positionId) } },
+      };
+    });
 
     const order = await this.prisma.order.create({
       data: {
         status: EnumOrderStatus.PENDING,
         type: dto.type ?? OrderType.AUTO,
         total,
-        user: { connect: { id: userId } },
+        userId: userId ?? undefined,
         items: { create: orderItemsData },
       },
       include: { items: true },
@@ -78,13 +115,22 @@ export class OrderService {
       description: `Оплата заказа #${order.id}`,
     });
 
+    if (promoCodeId && userId) {
+      await this.prisma.promoCodeUse.create({
+        data: {
+          promoCodeId,
+          userId,
+          orderId: order.id,
+        },
+      });
+    }
+
     return { order, payment };
   }
 
   async updateStatus(dto: PaymentStatusDto) {
     this.logger.log(`Получен вебхук: ${dto.event}`);
 
-    // Отвечаем YooKassa мгновенно, обработку делаем в фоне
     this.handleWebhook(dto).catch((err) =>
       this.logger.error('handleWebhook упал:', err),
     );
@@ -108,10 +154,8 @@ export class OrderService {
       this.logger.log(`description: "${description}"`);
 
       if (description.startsWith('Пополнение Steam #')) {
-        // Steam заказ
         await this.steamOrderService.handleSuccessPayment(description);
       } else if (description.startsWith('Оплата заказа #')) {
-        // Игровой заказ (AUTO или MANUAL)
         await this.handleGameOrderPayment(description);
       } else {
         this.logger.warn(`Неизвестный тип заказа: "${description}"`);
@@ -129,7 +173,13 @@ export class OrderService {
 
     const existing = await this.prisma.order.findUnique({
       where: { id: orderId },
-      select: { type: true },
+      select: {
+        type: true,
+        userId: true,
+        promoCodes: {
+          select: { promoCodeId: true },
+        },
+      },
     });
 
     if (!existing) {
@@ -149,6 +199,12 @@ export class OrderService {
         items: { include: { position: true } },
       },
     });
+
+    if (existing.promoCodes) {
+      await this.promoService
+        .markUsed(existing.promoCodes.promoCodeId)
+        .catch((err) => this.logger.error('promoService.markUsed упал:', err));
+    }
 
     this.logger.log(
       `Заказ ${orderId} оплачен, type: ${order.type}, manualStatus: ${order.manualStatus ?? 'n/a'}`,

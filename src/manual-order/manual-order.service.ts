@@ -100,7 +100,7 @@ export class ManualOrderService {
 
     if (dto.status === ManualStatus.COMPLETED) {
       // Уведомляем пользователя что заказ выполнен
-      this.gateway.notifyOrderCompleted(order.userId, orderId);
+      this.gateway.notifyOrderCompleted(String(order.userId), orderId);
       this.logger.log(`Заказ ${orderId} завершён, уведомление отправлено`);
     }
 

@@ -5,9 +5,9 @@ import {
   Get,
   HttpCode,
   Param,
-  ParseIntPipe,
   Post,
   Put,
+  Query,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -26,6 +26,26 @@ export class GameController {
     return this.gameService.getAll();
   }
 
+  @Get('active')
+  async getAllActive() {
+    return this.gameService.getAllActive();
+  }
+
+  @Get('popular')
+  async getPopular(@Query('limit') limit?: string) {
+    return this.gameService.getPopular(limit ? Number(limit) : 10);
+  }
+
+  @Get(':slug')
+  async getBySlug(@Param('slug') slug: string) {
+    return this.gameService.getBySlug(slug);
+  }
+
+  @Get(':id')
+  async getById(@Param('id') id: number) {
+    return this.gameService.getById(id);
+  }
+
   @Auth()
   @CheckRole(Role.ADMIN, Role.MANAGER)
   @UsePipes(new ValidationPipe())
@@ -40,7 +60,7 @@ export class GameController {
   @UsePipes(new ValidationPipe())
   @HttpCode(200)
   @Put(':id')
-  async update(@Param('id', ParseIntPipe) id: number, @Body() dto: GameDto) {
+  async update(@Param('id') id: number, @Body() dto: GameDto) {
     return this.gameService.update(id, dto);
   }
 
@@ -48,7 +68,7 @@ export class GameController {
   @CheckRole(Role.ADMIN, Role.MANAGER)
   @HttpCode(200)
   @Delete(':id')
-  async delete(@Param('id', ParseIntPipe) id: number) {
+  async delete(@Param('id') id: number) {
     return this.gameService.delete(id);
   }
 }

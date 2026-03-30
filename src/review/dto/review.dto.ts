@@ -7,7 +7,7 @@ export class ReviewDto {
 
   @IsNumber({}, { message: 'Рейтинг должен быть числом' })
   @IsNotEmpty({ message: 'Рейтинг не может быть пустым' })
-  @Max(5, { message: 'Рейтинг не может быть больше 5' })
+  @Max(10, { message: 'Рейтинг не может быть больше 10' })
   @Min(1, { message: 'Рейтинг не может быть меньше 1' })
   rating: number;
 }

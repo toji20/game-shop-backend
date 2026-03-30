@@ -1,5 +1,11 @@
 import { OrderType } from '@prisma/client';
-import { IsBoolean, IsEnum, IsOptional, IsString } from 'class-validator';
+import {
+  IsArray,
+  IsBoolean,
+  IsEnum,
+  IsOptional,
+  IsString,
+} from 'class-validator';
 
 export class GameDto {
   @IsString()
@@ -7,21 +13,40 @@ export class GameDto {
 
   @IsOptional()
   @IsString()
-  slug: string;
+  slug?: string;
 
-  @IsString()
   @IsOptional()
-  description: string;
-
   @IsString()
-  image: string;
+  description?: string;
+
+  @IsOptional()
+  @IsString()
+  releaseDate?: string;
+
+  @IsOptional()
+  @IsString()
+  ageLimit?: string;
+
+  @IsOptional()
+  @IsString()
+  genre?: string;
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  image?: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  instructions?: string[];
 
   @IsBoolean()
   isActive: boolean;
 
-  @IsString()
   @IsOptional()
-  categoryId: string;
+  @IsString()
+  categoryId?: string;
 
   @IsEnum(OrderType, {
     message:

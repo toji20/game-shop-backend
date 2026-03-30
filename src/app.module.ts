@@ -19,6 +19,7 @@ import { ManualOrderModule } from './manual-order/manual-order.module';
 import { GameFieldModule } from './game-field/game-field.module';
 import { StatisticsModule } from './statistics/statistics.module';
 import { PromoModule } from './promo/promo.module';
+import { AdBannerModule } from './ad-banner/ad-banner.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { PromoModule } from './promo/promo.module';
     GameFieldModule,
     StatisticsModule,
     PromoModule,
+    AdBannerModule,
   ],
 })
 export class AppModule {}

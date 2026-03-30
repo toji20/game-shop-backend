@@ -6,9 +6,10 @@ import { DonatehubGameService } from 'src/donate-hub-game/donate-hub-game.servic
 import { DonateHubGameModule } from 'src/donate-hub-game/donate-hub-game.module';
 import { SteamOrderModule } from 'src/steam-order/steam-order.module';
 import { OrderGateway } from './order.gateway';
+import { PromoModule } from 'src/promo/promo.module';
 
 @Module({
-  imports: [DonateHubGameModule, SteamOrderModule],
+  imports: [DonateHubGameModule, SteamOrderModule, PromoModule],
   controllers: [OrderController],
   providers: [OrderService, PrismaService, DonatehubGameService, OrderGateway],
   exports: [OrderGateway],

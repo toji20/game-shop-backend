@@ -6,6 +6,7 @@ import {
   HttpCode,
   Param,
   Post,
+  Query,
   UsePipes,
   ValidationPipe,
 } from '@nestjs/common';
@@ -18,21 +19,45 @@ import { CurrentUser } from 'src/user/decorators/user.decorator';
 export class ReviewController {
   constructor(private readonly reviewService: ReviewService) {}
 
-  @Auth()
   @Get('all-reviews')
   async getAll() {
     return this.reviewService.getAll();
   }
 
-  @Auth()
+  @Get('paginated-all')
+  async getAllPaginated(
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    return this.reviewService.getAllPaginated(Number(page), Number(limit));
+  }
+
+  @Get('paginated/:gameId')
+  async getPaginated(
+    @Param('gameId') gameId: number,
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+  ) {
+    return this.reviewService.getByGameIdPaginated(
+      Number(gameId),
+      Number(page),
+      Number(limit),
+    );
+  }
+
   @Get('by-game/:gameId')
   async getBygameId(@Param('gameId') gameId: number) {
     return this.reviewService.getBygameId(gameId);
   }
 
+  @Get('stats')
+  async getStats(@Query('gameId') gameId?: string) {
+    return this.reviewService.getStats(gameId ? Number(gameId) : undefined);
+  }
+
   @UsePipes(new ValidationPipe())
   @HttpCode(200)
-  @Post(':gameId/:storeId')
+  @Post(':gameId')
   @Auth()
   async create(
     @Body() dto: ReviewDto,

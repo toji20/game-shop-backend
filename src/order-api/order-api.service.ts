@@ -21,7 +21,13 @@ export class OrderApiService {
         id: id,
       },
       include: {
-        items: true,
+        items: {
+          include: {
+            position: {
+              include: { game: true },
+            },
+          },
+        },
         user: true,
       },
     });

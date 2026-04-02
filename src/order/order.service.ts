@@ -110,7 +110,7 @@ export class OrderService {
       ),
       confirmation: {
         type: 'redirect',
-        return_url: `${process.env.CLIENT_URL}/thanks`,
+        return_url: `${process.env.CLIENT_URL}/order/${order.id}`,
       },
       description: `Оплата заказа #${order.id}`,
     });

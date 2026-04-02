@@ -87,7 +87,7 @@ export class SteamOrderService {
       payment_method_data: { type: 'bank_card' },
       confirmation: {
         type: 'redirect',
-        return_url: `${process.env.CLIENT_URL}/thanks`,
+        return_url: `${process.env.CLIENT_URL}/order/${steamOrder.id}`,
       },
       description: `Пополнение Steam #${steamOrder.id}`,
     });

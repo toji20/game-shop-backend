@@ -23,7 +23,13 @@ export class ManualOrderService {
     return this.prisma.order.findMany({
       where: {
         type: OrderType.MANUAL,
-        status: EnumOrderStatus.PAID,
+        status: {
+          in: [
+            EnumOrderStatus.PAID,
+            EnumOrderStatus.COMPLETED,
+            EnumOrderStatus.CANCELED,
+          ],
+        },
         ...(status ? { manualStatus: status } : {}),
       },
       include: {

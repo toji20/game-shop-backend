@@ -5,7 +5,17 @@ import {
   IsEnum,
   IsOptional,
   IsString,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class FaqItemDto {
+  @IsString()
+  question: string;
+
+  @IsString()
+  answer: string;
+}
 
 export class GameDto {
   @IsString()
@@ -45,6 +55,10 @@ export class GameDto {
   isActive: boolean;
 
   @IsOptional()
+  @IsBoolean()
+  isPublic?: boolean;
+
+  @IsOptional()
   @IsString()
   categoryId?: string;
 
@@ -53,4 +67,10 @@ export class GameDto {
       'Статус должен быть одним из: ' + Object.values(OrderType).join(', '),
   })
   type: OrderType;
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => FaqItemDto)
+  faq?: FaqItemDto[];
 }

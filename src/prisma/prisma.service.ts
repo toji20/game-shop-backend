@@ -78,4 +78,10 @@ export class PrismaService implements OnModuleInit {
   get gameServer() {
     return this.client.gameServer;
   }
+  get emailCode() {
+    return this.client.emailCode;
+  }
+  get sideBanner() {
+    return this.client.sideBanner;
+  }
 }

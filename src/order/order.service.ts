@@ -53,10 +53,20 @@ export class OrderService {
       );
       total = total * (1 - promo.discount / 100);
       promoCodeId = promo.id;
-      this.logger.log(
-        `Промокод ${promo.code} применён, скидка ${promo.discount}%, итого: ${total}`,
-      );
     }
+
+    // Комиссия по методу оплаты
+    const method = dto.paymentMethod ?? PaymentMethod.BANK_CARD;
+    const commissionRate =
+      method === PaymentMethod.SBP
+        ? 1.01
+        : method === PaymentMethod.BANK_CARD
+          ? 1.02
+          : 1;
+
+    total = +(total * commissionRate).toFixed(2);
+
+    this.logger.log(`Комиссия x${commissionRate} (${method}), итого: ${total}`);
 
     // Загружаем поля всех игр из заказа для маппинга id -> label
     const gameIds = [...new Set(dto.items.map((i) => Number(i.gameId)))];

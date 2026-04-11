@@ -1,8 +1,17 @@
-import { IsEmail, IsNumber, Max, Min } from 'class-validator';
+import {
+  IsNumber,
+  IsOptional,
+  IsIn,
+  Max,
+  Min,
+  IsString,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 
+export type SteamCurrency = 'RUB' | 'KZT' | 'USD';
+
 export class SteamCheckDto {
-  @IsEmail({}, { message: 'Укажите корректный Steam аккаунт (email)' })
+  @IsString({ message: 'Укажите корректный Steam логин' })
   account: string;
 
   @Type(() => Number)
@@ -10,11 +19,14 @@ export class SteamCheckDto {
   @Min(1, { message: 'Минимальная сумма пополнения: 1' })
   @Max(100000, { message: 'Максимальная сумма пополнения: 100000' })
   amount: number;
+
+  @IsOptional()
+  @IsIn(['RUB', 'KZT', 'USD'])
+  currency?: SteamCurrency;
 }
 
-// POST /steam-orders/place
 export class SteamOrderDto {
-  @IsEmail({}, { message: 'Укажите корректный Steam аккаунт (email)' })
+  @IsString({ message: 'Укажите корректный Steam логин' })
   account: string;
 
   @Type(() => Number)
@@ -22,4 +34,8 @@ export class SteamOrderDto {
   @Min(1, { message: 'Минимальная сумма пополнения: 1' })
   @Max(100000, { message: 'Максимальная сумма пополнения: 100000' })
   amountRub: number;
+
+  @IsOptional()
+  @IsIn(['RUB', 'KZT', 'USD'])
+  currency?: SteamCurrency;
 }

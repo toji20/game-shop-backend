@@ -21,30 +21,30 @@ import { AuthGuard } from '@nestjs/passport';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @UsePipes(new ValidationPipe())
-  @HttpCode(200)
-  @Post('login')
-  async login(@Body() dto: AuthDto, @Res({ passthrough: true }) res: Response) {
-    const { refreshToken, ...response } = await this.authService.login(dto);
+  // @UsePipes(new ValidationPipe())
+  // @HttpCode(200)
+  // @Post('login')
+  // async login(@Body() dto: AuthDto, @Res({ passthrough: true }) res: Response) {
+  //   const { refreshToken, ...response } = await this.authService.login(dto);
 
-    this.authService.addRefreshTokenToResponse(res, refreshToken);
+  //   this.authService.addRefreshTokenToResponse(res, refreshToken);
 
-    return response;
-  }
+  //   return response;
+  // }
 
-  @UsePipes(new ValidationPipe())
-  @HttpCode(200)
-  @Post('register')
-  async register(
-    @Body() dto: AuthDto,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    const { refreshToken, ...response } = await this.authService.register(dto);
+  // @UsePipes(new ValidationPipe())
+  // @HttpCode(200)
+  // @Post('register')
+  // async register(
+  //   @Body() dto: AuthDto,
+  //   @Res({ passthrough: true }) res: Response,
+  // ) {
+  //   const { refreshToken, ...response } = await this.authService.register(dto);
 
-    this.authService.addRefreshTokenToResponse(res, refreshToken);
+  //   this.authService.addRefreshTokenToResponse(res, refreshToken);
 
-    return response;
-  }
+  //   return response;
+  // }
 
   @UsePipes(new ValidationPipe())
   @HttpCode(200)
@@ -92,9 +92,7 @@ export class AuthController {
 
     this.authService.addRefreshTokenToResponse(res, refreshToken);
 
-    return res.redirect(
-      `${process.env['CLIENT_URL']}/dashboard?accessToken=${response.accessToken}`,
-    );
+    return res.redirect(`${process.env['CLIENT_URL']}/profile`);
   }
 
   @Get('yandex/callback')
@@ -108,12 +106,40 @@ export class AuthController {
 
     this.authService.addRefreshTokenToResponse(res, refreshToken);
 
-    return res.redirect(
-      `${process.env['CLIENT_URL']}/dashboard?accessToken=${response.accessToken}`,
-    );
+    return res.redirect(`${process.env['CLIENT_URL']}/profile`);
   }
 
   @Get('yandex')
   @UseGuards(AuthGuard('yandex'))
   async yandexAuth(@Req() _req) {}
+
+  @Get('vk')
+  @UseGuards(AuthGuard('vk'))
+  async vkAuth() {}
+
+  @Get('vk/callback')
+  @UseGuards(AuthGuard('vk'))
+  async vkCallback(@Req() req: any, @Res({ passthrough: true }) res: Response) {
+    const { refreshToken, ...response } =
+      await this.authService.validateOAuthLogin(req);
+
+    this.authService.addRefreshTokenToResponse(res, refreshToken);
+
+    return res.redirect(`${process.env['CLIENT_URL']}/profile`);
+  }
+  @Post('send-code')
+  @HttpCode(200)
+  async sendCode(@Body('email') email: string) {
+    return this.authService.sendCode(email);
+  }
+
+  @Post('verify-code')
+  @HttpCode(200)
+  async verifyCode(
+    @Body('email') email: string,
+    @Body('code') code: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.authService.verifyCode(email, code, res);
+  }
 }

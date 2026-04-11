@@ -33,6 +33,17 @@ export class OrderApiService {
     });
   }
 
+  async getByIdSteamOrder(id: string) {
+    return await this.prisma.steamOrder.findUnique({
+      where: {
+        id: id,
+      },
+      include: {
+        user: true,
+      },
+    });
+  }
+
   async updateStatus(id: string, dto: OrderUpdateStatus) {
     return await this.prisma.order.update({
       where: {

@@ -29,6 +29,14 @@ model User {
   @@map("user")
 }
 
+model EmailCode {
+    id        String   @id @default(cuid())
+    email     String
+    code      String
+    expiresAt DateTime
+    createdAt DateTime @default(now())
+}
+
 model Banner {
   id          Int      @id @default(autoincrement())
   
@@ -37,6 +45,16 @@ model Banner {
   link String?
 
   images String[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SideBanner {
+  id   Int      @id @default(autoincrement())
+ 
+  link String?
+
+  image String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -69,7 +87,7 @@ model Game {
   genre String?
 
   warning String?
-
+  faq Json?
   instructions String[]
 
   isActive    Boolean  @default(true)

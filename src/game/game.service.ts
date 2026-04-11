@@ -158,6 +158,7 @@ export class GameService {
         releaseDate: dto.releaseDate ?? '',
         instructions: dto.instructions ?? [],
         type: dto.type,
+        faq: dto.faq ?? [],
       },
     });
   }
@@ -177,6 +178,7 @@ export class GameService {
         categoryId: dto.categoryId || null,
         image: dto.image ?? [],
         type: dto.type,
+        faq: dto.faq ?? [],
       },
     });
   }

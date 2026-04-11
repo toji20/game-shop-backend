@@ -20,6 +20,7 @@ import { GameFieldModule } from './game-field/game-field.module';
 import { StatisticsModule } from './statistics/statistics.module';
 import { PromoModule } from './promo/promo.module';
 import { AdBannerModule } from './ad-banner/ad-banner.module';
+import { SideBannerModule } from './sideBanner/side-banner.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { AdBannerModule } from './ad-banner/ad-banner.module';
     StatisticsModule,
     PromoModule,
     AdBannerModule,
+    SideBannerModule,
   ],
 })
 export class AppModule {}

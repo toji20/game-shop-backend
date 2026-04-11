@@ -28,6 +28,10 @@ export class OrderApiController {
     return this.orderApiService.getById(id);
   }
 
+  @Get('by-id-steam/:id')
+  async getByIdSteamOrder(@Param('id') id: string) {
+    return this.orderApiService.getByIdSteamOrder(id);
+  }
   @Auth()
   @CheckRole(Role.ADMIN, Role.MANAGER, Role.OPERATOR)
   @UsePipes(new ValidationPipe())

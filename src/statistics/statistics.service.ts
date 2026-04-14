@@ -177,7 +177,7 @@ export class StatisticsService {
 
     const games = await this.prisma.game.findMany({
       where: { id: { in: result.map((r) => r.gameId) } },
-      select: { id: true, name: true, image: true },
+      select: { id: true, name: true, icon: true },
     });
 
     return result.map((r) => {
@@ -185,7 +185,7 @@ export class StatisticsService {
       return {
         gameId: r.gameId,
         name: game?.name ?? 'Неизвестно',
-        image: game?.image ?? null,
+        image: game?.icon ?? null,
         ordersCount: r._count.id,
         revenue: Number(r._sum.price ?? 0),
       };

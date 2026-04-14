@@ -80,8 +80,10 @@ model Game {
   decription  String?
   slug        String?   @unique
   discount    Decimal?
-  image       String[]
-
+  icon        String?
+  iconWide    String? 
+  bgDesktop   String?
+  bgMobile    String?
   releaseDate String?
   ageLimit String?
   genre String?

@@ -42,9 +42,20 @@ export class GameDto {
   genre?: string;
 
   @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  image?: string[];
+  @IsString()
+  icon?: string;
+
+  @IsOptional()
+  @IsString()
+  iconWide?: string;
+
+  @IsOptional()
+  @IsString()
+  bgDesktop?: string;
+
+  @IsOptional()
+  @IsString()
+  bgMobile?: string;
 
   @IsOptional()
   @IsArray()

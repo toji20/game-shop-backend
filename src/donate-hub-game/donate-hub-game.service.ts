@@ -6,7 +6,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 @Injectable()
 export class DonatehubGameService {
   private readonly logger = new Logger(DonatehubGameService.name);
-  private readonly baseUrl = process.env.DONATEHUB_TEST_URL;
+  private readonly baseUrl = process.env.DONATEHUB_URL;
 
   constructor(
     private readonly configService: ConfigService,

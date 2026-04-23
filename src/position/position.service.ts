@@ -9,6 +9,9 @@ export class PositionService {
   async getByGameId(gameId: number) {
     return this.prisma.position.findMany({
       where: { gameId: Number(gameId) },
+      include: {
+        category: true,
+      },
     });
   }
 
@@ -16,12 +19,16 @@ export class PositionService {
     return this.prisma.position.create({
       data: {
         gameId: Number(dto.gameId),
-        myPrice: dto.myPrice,
         name: dto.name,
+        myPrice: dto.myPrice,
         image: dto.image,
-        isActive: dto.isActive || true,
-        isPublic: dto.isPublic || true,
+        isActive: dto.isActive ?? true,
+        isPublic: dto.isPublic ?? true,
         discount: dto.discount,
+        categoryId: dto.categoryId ?? null,
+      },
+      include: {
+        category: true,
       },
     });
   }
@@ -32,10 +39,14 @@ export class PositionService {
       data: {
         name: dto.name,
         myPrice: dto.myPrice,
+        image: dto.image,
         isActive: dto.isActive,
         isPublic: dto.isPublic,
-        image: dto.image,
         discount: dto.discount,
+        categoryId: dto.categoryId ?? null,
+      },
+      include: {
+        category: true,
       },
     });
   }

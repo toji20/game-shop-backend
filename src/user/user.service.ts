@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { hash } from 'argon2';
 import { AuthDto } from './dto/auth.dto';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { Role } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 
 @Injectable()
 export class UserService {
@@ -13,6 +13,11 @@ export class UserService {
       where: { id },
       include: {
         favorites: { include: { category: true } },
+        steamOrders: {
+          orderBy: {
+            createdAt: 'desc',
+          },
+        },
         orders: {
           orderBy: { createdAt: 'desc' },
           include: {
@@ -26,6 +31,7 @@ export class UserService {
         },
       },
     });
+
     if (!user) throw new NotFoundException({ message: 'User not found' });
     return user;
   }
@@ -41,6 +47,52 @@ export class UserService {
       },
     });
     return user;
+  }
+
+  async search(query: string) {
+    const trimmed = query.trim();
+
+    if (!trimmed) {
+      return [];
+    }
+
+    const where: Prisma.UserWhereInput = {
+      OR: [
+        { id: { equals: trimmed } },
+        { email: { contains: trimmed, mode: 'insensitive' } },
+        { name: { contains: trimmed, mode: 'insensitive' } },
+      ],
+    };
+
+    return this.prisma.user.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+      include: {
+        _count: {
+          select: {
+            orders: true,
+            steamOrders: true,
+            favorites: true,
+          },
+        },
+      },
+    });
+  }
+
+  async updateRole(id: string, role: Role) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!user) {
+      throw new NotFoundException({ message: 'User not found' });
+    }
+
+    return this.prisma.user.update({
+      where: { id },
+      data: { role },
+    });
   }
 
   async toogleFavorite(gameId: number, userId: string) {

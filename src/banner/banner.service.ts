@@ -33,7 +33,8 @@ export class BannerService {
   async create(dto: BannerDto) {
     return this.prisma.banner.create({
       data: {
-        images: dto.images,
+        desktopImage: dto.desktopImage || '',
+        mobileImage: dto.mobileImage || '',
         title: dto.title || '',
         description: dto.description || '',
         link: dto.link || '',
@@ -48,7 +49,8 @@ export class BannerService {
         id: Number(id),
       },
       data: {
-        images: dto.images,
+        desktopImage: dto.desktopImage || '',
+        mobileImage: dto.mobileImage || '',
         title: dto.title || '',
         description: dto.description || '',
         link: dto.link || '',

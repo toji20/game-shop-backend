@@ -84,4 +84,7 @@ export class PrismaService implements OnModuleInit {
   get sideBanner() {
     return this.client.sideBanner;
   }
+  get positionCategory() {
+    return this.client.positionCategory;
+  }
 }

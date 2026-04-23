@@ -10,6 +10,8 @@ import {
   SteamOrderDto,
   SteamCurrency,
 } from './dto/steam-order.dto';
+import { PromoService } from 'src/promo/promo.service';
+import { PromoTarget } from 'src/promo/dto/promo.dto';
 
 @Injectable()
 export class SteamOrderService {
@@ -20,6 +22,7 @@ export class SteamOrderService {
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
     private readonly donatehubSteamService: DonatehubSteamService,
+    private readonly promoService: PromoService,
   ) {
     const shopId = this.configService.get<string>('YOOKASSA_SHOP_ID');
     const secretKey = this.configService.get<string>('YOOKASSA_SECRET_KEY');
@@ -81,16 +84,23 @@ export class SteamOrderService {
       amountUsdt,
     );
 
-    const totalRub = +(check.total * rate).toFixed(2);
+    const commission =
+      this.configService.get<number>('STEAM_COMMISSION') ?? 1.06;
+
+    const totalRubBase = +(check.total * rate * commission).toFixed(2);
+    const totalRubCard = +(totalRubBase * 1.02).toFixed(2);
+    const totalRubSbp = +(totalRubBase * 1.01).toFixed(2);
 
     this.logger.log(
-      `Steam check: ${dto.amount} ${dto.currency ?? 'RUB'} → ${amountRub} RUB → ${amountUsdt} USDT → total: ${check.total} USDT → ${totalRub} RUB (курс ${rate})`,
+      `Steam check: ${dto.amount} ${dto.currency ?? 'RUB'} → ${amountRub} RUB → ${amountUsdt} USDT → total: ${check.total} USDT → base: ${totalRubBase} RUB`,
     );
 
     return {
       custom_id: check.custom_id,
       total: check.total,
-      totalRub,
+      totalRubBase,
+      totalRubCard,
+      totalRubSbp,
       rate,
       currency: dto.currency ?? 'RUB',
       originalAmount: dto.amount,
@@ -105,19 +115,37 @@ export class SteamOrderService {
     const amountInRub = await this.toRub(dto.amountRub, dto.currency);
     const amountUsdt = +(amountInRub / rate).toFixed(2);
 
-    this.logger.log(
-      `Steam: ${dto.amountRub} ${dto.currency ?? 'RUB'} → ${amountInRub} RUB → ${amountUsdt} USDT (курс ${rate})`,
-    );
-
     const check = await this.donatehubSteamService.checkSteamOrder(
       dto.account,
       amountUsdt,
     );
 
-    const totalRub = +(check.total * rate * commission).toFixed(2);
+    const method = dto.paymentMethod ?? 'bank_card';
+    const bankCommissionRate = method === 'sbp' ? 1.01 : 1.02;
+    let totalRub = +(
+      check.total *
+      rate *
+      commission *
+      bankCommissionRate
+    ).toFixed(2);
+
+    let promoCodeId: string | null = null;
+
+    if (dto.promoCode && userId) {
+      const promo = await this.promoService.apply(
+        {
+          code: dto.promoCode,
+          target: PromoTarget.STEAM,
+        },
+        userId,
+      );
+
+      totalRub = +(totalRub * (1 - promo.discount / 100)).toFixed(2);
+      promoCodeId = promo.id;
+    }
 
     this.logger.log(
-      `Steam: итого ${totalRub} RUB (с комиссией x${commission})`,
+      `Steam: итого ${totalRub} RUB (комиссия сервиса x${commission}, банк x${bankCommissionRate}, метод: ${method})`,
     );
 
     const steamOrder = await this.prisma.steamOrder.create({
@@ -134,13 +162,23 @@ export class SteamOrderService {
     const payment = await this.checkout.createPayment({
       amount: { value: totalRub.toFixed(2), currency: 'RUB' },
       capture: true,
-      payment_method_data: { type: 'bank_card' },
+      payment_method_data: { type: method },
       confirmation: {
         type: 'redirect',
         return_url: `${process.env.CLIENT_URL}/steam-order/${steamOrder.id}`,
       },
       description: `Пополнение Steam #${steamOrder.id}`,
     });
+
+    if (promoCodeId && userId) {
+      await this.prisma.promoCodeUse.create({
+        data: {
+          promoCodeId,
+          userId,
+          steamOrderId: steamOrder.id,
+        },
+      });
+    }
 
     return { steamOrder, payment };
   }
@@ -155,10 +193,25 @@ export class SteamOrderService {
 
     this.logger.log(`Обновляем Steam заказ: ${steamOrderId}`);
 
+    const existing = await this.prisma.steamOrder.findUnique({
+      where: { id: steamOrderId },
+      select: {
+        promoCodes: {
+          select: { promoCodeId: true },
+        },
+      },
+    });
+
     await this.prisma.steamOrder.update({
       where: { id: steamOrderId },
       data: { status: EnumOrderStatus.PAID },
     });
+
+    if (existing?.promoCodes) {
+      await this.promoService
+        .markUsed(existing.promoCodes.promoCodeId)
+        .catch((err) => this.logger.error('promoService.markUsed упал:', err));
+    }
 
     this.donatehubSteamService
       .createSteamOrder(steamOrderId)

@@ -4,10 +4,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
+import { PromoCodeScope } from '@prisma/client';
 import {
   ApplyPromoCodeDto,
   PromoCodeCreateDto,
   PromoCodeUpdateDto,
+  PromoTarget,
 } from './dto/promo.dto';
 
 @Injectable()
@@ -31,6 +33,7 @@ export class PromoService {
           include: {
             user: { select: { id: true, name: true, email: true } },
             order: { select: { id: true, total: true, createdAt: true } },
+            steamOrder: { select: { id: true, total: true, createdAt: true } },
           },
           orderBy: { createdAt: 'desc' },
         },
@@ -41,7 +44,23 @@ export class PromoService {
     return promo;
   }
 
-  async check(code: string, userId: string) {
+  private validatePromoTarget(scope: PromoCodeScope, target: PromoTarget) {
+    if (scope === PromoCodeScope.GAMES_ONLY && target === PromoTarget.STEAM) {
+      throw new BadRequestException(
+        'Этот промокод доступен только для обычных игр',
+      );
+    }
+
+    if (scope === PromoCodeScope.STEAM_ONLY && target === PromoTarget.GAME) {
+      throw new BadRequestException('Этот промокод доступен только для Steam');
+    }
+  }
+
+  private async validatePromo(
+    code: string,
+    userId: string,
+    target: PromoTarget,
+  ) {
     const promo = await this.prisma.promoCode.findUnique({
       where: { code: code.toUpperCase() },
     });
@@ -54,10 +73,13 @@ export class PromoService {
       throw new BadRequestException('Срок действия промокода истёк');
     }
 
+    this.validatePromoTarget(promo.scope, target);
+
     if (promo.usageLimit !== null) {
       const useCount = await this.prisma.promoCodeUse.count({
         where: { promoCodeId: promo.id },
       });
+
       if (useCount >= promo.usageLimit) {
         throw new BadRequestException('Промокод больше недействителен');
       }
@@ -71,7 +93,21 @@ export class PromoService {
       throw new BadRequestException('Вы уже использовали этот промокод');
     }
 
-    return { code: promo.code, discount: Number(promo.discount) };
+    return promo;
+  }
+
+  async check(
+    code: string,
+    userId: string,
+    target: PromoTarget = PromoTarget.GAME,
+  ) {
+    const promo = await this.validatePromo(code, userId, target);
+
+    return {
+      code: promo.code,
+      discount: Number(promo.discount),
+      scope: promo.scope,
+    };
   }
 
   async create(dto: PromoCodeCreateDto) {
@@ -85,6 +121,7 @@ export class PromoService {
       data: {
         code: dto.code.toUpperCase(),
         discount: dto.discount,
+        scope: dto.scope ?? PromoCodeScope.ALL,
         isActive: dto.isActive ?? true,
         usageLimit: dto.usageLimit ?? null,
         expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
@@ -99,6 +136,7 @@ export class PromoService {
       const existing = await this.prisma.promoCode.findUnique({
         where: { code: dto.code.toUpperCase() },
       });
+
       if (existing && existing.id !== id) {
         throw new BadRequestException('Промокод с таким кодом уже существует');
       }
@@ -109,6 +147,7 @@ export class PromoService {
       data: {
         ...(dto.code && { code: dto.code.toUpperCase() }),
         ...(dto.discount !== undefined && { discount: dto.discount }),
+        ...(dto.scope !== undefined && { scope: dto.scope }),
         ...(dto.isActive !== undefined && { isActive: dto.isActive }),
         ...(dto.usageLimit !== undefined && { usageLimit: dto.usageLimit }),
         ...(dto.expiresAt !== undefined && {
@@ -124,39 +163,14 @@ export class PromoService {
   }
 
   async apply(dto: ApplyPromoCodeDto, userId: string) {
-    const promo = await this.prisma.promoCode.findUnique({
-      where: { code: dto.code.toUpperCase() },
-    });
-
-    if (!promo || !promo.isActive) {
-      throw new BadRequestException('Промокод не найден или неактивен');
-    }
-
-    if (promo.expiresAt && promo.expiresAt < new Date()) {
-      throw new BadRequestException('Срок действия промокода истёк');
-    }
-
-    if (promo.usageLimit !== null) {
-      const useCount = await this.prisma.promoCodeUse.count({
-        where: { promoCodeId: promo.id },
-      });
-      if (useCount >= promo.usageLimit) {
-        throw new BadRequestException('Промокод больше недействителен');
-      }
-    }
-
-    const alreadyUsed = await this.prisma.promoCodeUse.findFirst({
-      where: { promoCodeId: promo.id, userId },
-    });
-
-    if (alreadyUsed) {
-      throw new BadRequestException('Вы уже использовали этот промокод');
-    }
+    const target = dto.target ?? PromoTarget.GAME;
+    const promo = await this.validatePromo(dto.code, userId, target);
 
     return {
       id: promo.id,
       code: promo.code,
       discount: promo.discount,
+      scope: promo.scope,
     };
   }
 

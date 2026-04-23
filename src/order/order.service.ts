@@ -14,6 +14,7 @@ import { DonatehubGameService } from 'src/donate-hub-game/donate-hub-game.servic
 import { SteamOrderService } from 'src/steam-order/steam-order.service';
 import { OrderGateway } from './order.gateway';
 import { PromoService } from 'src/promo/promo.service';
+import { PromoTarget } from 'src/promo/dto/promo.dto';
 
 @Injectable()
 export class OrderService {
@@ -48,14 +49,17 @@ export class OrderService {
 
     if (dto.promoCode && userId) {
       const promo = await this.promoService.apply(
-        { code: dto.promoCode },
+        {
+          code: dto.promoCode,
+          target: PromoTarget.GAME,
+        },
         userId,
       );
+
       total = total * (1 - promo.discount / 100);
       promoCodeId = promo.id;
     }
 
-    // Комиссия по методу оплаты
     const method = dto.paymentMethod ?? PaymentMethod.BANK_CARD;
     const commissionRate =
       method === PaymentMethod.SBP
@@ -68,20 +72,19 @@ export class OrderService {
 
     this.logger.log(`Комиссия x${commissionRate} (${method}), итого: ${total}`);
 
-    // Загружаем поля всех игр из заказа для маппинга id -> label
     const gameIds = [...new Set(dto.items.map((i) => Number(i.gameId)))];
     const allGameFields = await this.prisma.gameField.findMany({
       where: { gameId: { in: gameIds } },
     });
 
     const orderItemsData = dto.items.map((item: OrderItemDto) => {
-      // Маппим { fieldId: value } -> { label: value }
       const mappedFields: Record<string, string> = {};
 
       if (item.fields && Object.keys(item.fields).length > 0) {
         const gameFields = allGameFields.filter(
           (f) => f.gameId === Number(item.gameId),
         );
+
         for (const [fieldId, value] of Object.entries(item.fields)) {
           const field = gameFields.find((f) => f.id === Number(fieldId));
           mappedFields[field ? field.label : fieldId] = value;
@@ -156,6 +159,7 @@ export class OrderService {
           currency: dto.object.amount.currency,
         },
       };
+
       return this.checkout.capturePayment(dto.object.id, capturePayment);
     }
 

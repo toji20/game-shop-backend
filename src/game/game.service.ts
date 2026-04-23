@@ -95,6 +95,7 @@ export class GameService {
         },
         positions: true,
         fields: true,
+        servers: true,
       },
     });
 
@@ -127,6 +128,8 @@ export class GameService {
         },
         positions: true,
         fields: true,
+        servers: true,
+        positionCategories: true,
       },
     });
 
@@ -162,6 +165,7 @@ export class GameService {
         instructions: dto.instructions ?? [],
         type: dto.type,
         faq: dto.faq ?? [],
+        warnings: dto.warnings ?? [],
       },
     });
   }
@@ -185,6 +189,7 @@ export class GameService {
         bgMobile: dto.bgMobile ?? null,
         type: dto.type,
         faq: dto.faq ?? [],
+        warnings: dto.warnings ?? [],
       },
     });
   }

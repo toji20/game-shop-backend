@@ -9,6 +9,7 @@ import {
 import { Type } from 'class-transformer';
 
 export type SteamCurrency = 'RUB' | 'KZT' | 'USD';
+export type SteamPaymentMethod = 'bank_card' | 'sbp';
 
 export class SteamCheckDto {
   @IsString({ message: 'Укажите корректный Steam логин' })
@@ -38,4 +39,12 @@ export class SteamOrderDto {
   @IsOptional()
   @IsIn(['RUB', 'KZT', 'USD'])
   currency?: SteamCurrency;
+
+  @IsOptional()
+  @IsIn(['bank_card', 'sbp'])
+  paymentMethod?: SteamPaymentMethod;
+
+  @IsOptional()
+  @IsString()
+  promoCode?: string;
 }

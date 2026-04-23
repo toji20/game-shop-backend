@@ -1,6 +1,7 @@
 import {
   IsBoolean,
   IsDateString,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
@@ -8,6 +9,17 @@ import {
   Min,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+
+export enum PromoCodeScopeDto {
+  ALL = 'ALL',
+  GAMES_ONLY = 'GAMES_ONLY',
+  STEAM_ONLY = 'STEAM_ONLY',
+}
+
+export enum PromoTarget {
+  GAME = 'GAME',
+  STEAM = 'STEAM',
+}
 
 export class PromoCodeCreateDto {
   @IsString()
@@ -18,6 +30,10 @@ export class PromoCodeCreateDto {
   @Max(100)
   @Type(() => Number)
   discount: number;
+
+  @IsOptional()
+  @IsEnum(PromoCodeScopeDto)
+  scope?: PromoCodeScopeDto;
 
   @IsOptional()
   @IsBoolean()
@@ -47,6 +63,10 @@ export class PromoCodeUpdateDto {
   discount?: number;
 
   @IsOptional()
+  @IsEnum(PromoCodeScopeDto)
+  scope?: PromoCodeScopeDto;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 
@@ -64,4 +84,8 @@ export class PromoCodeUpdateDto {
 export class ApplyPromoCodeDto {
   @IsString()
   code: string;
+
+  @IsOptional()
+  @IsEnum(PromoTarget)
+  target?: PromoTarget;
 }

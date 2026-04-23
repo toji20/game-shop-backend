@@ -21,6 +21,7 @@ import { StatisticsModule } from './statistics/statistics.module';
 import { PromoModule } from './promo/promo.module';
 import { AdBannerModule } from './ad-banner/ad-banner.module';
 import { SideBannerModule } from './sideBanner/side-banner.module';
+import { PositionCategoryModule } from './position-category/position-category.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { SideBannerModule } from './sideBanner/side-banner.module';
     PromoModule,
     AdBannerModule,
     SideBannerModule,
+    PositionCategoryModule,
   ],
 })
 export class AppModule {}

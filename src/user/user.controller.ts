@@ -1,8 +1,20 @@
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Put,
+  Query,
+  UsePipes,
+  ValidationPipe,
+} from '@nestjs/common';
 import { UserService } from './user.service';
-import { AuthDto } from './dto/auth.dto';
-import { Auth } from 'src/auth/decorators/auth.decorator';
+import { AuthDto, UpdateUserRoleDto } from './dto/auth.dto';
 import { CurrentUser } from './decorators/user.decorator';
+import { Role } from '@prisma/client';
+import { Auth } from 'src/auth/decorators/authorization.decorator';
 
 @Controller('users')
 export class UserController {
@@ -16,6 +28,19 @@ export class UserController {
   @Get('email/:email')
   async getByEmail(@Param('email') email: string) {
     return await this.userService.getByEmail(email);
+  }
+
+  @Auth(Role.MANAGER, Role.ADMIN)
+  @Get('search')
+  async search(@Query('query') query: string) {
+    return this.userService.search(query ?? '');
+  }
+
+  @Auth(Role.MANAGER, Role.ADMIN)
+  @UsePipes(new ValidationPipe({ transform: true }))
+  @Put(':id/role')
+  async updateRole(@Param('id') id: string, @Body() dto: UpdateUserRoleDto) {
+    return this.userService.updateRole(id, dto.role);
   }
 
   @Post()

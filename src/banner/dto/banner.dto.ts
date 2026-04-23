@@ -1,9 +1,4 @@
-import {
-  ArrayMinSize,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-} from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class BannerDto {
   @IsNotEmpty()
@@ -19,14 +14,13 @@ export class BannerDto {
   })
   link: string;
 
-  @ArrayMinSize(1, {
-    message: 'Укажите хотя бы одну картинку',
-  })
-  @IsNotEmpty({
-    message: 'Путь к картинке не может быть пустым',
-    each: true,
-  })
-  images: string[];
+  @IsOptional()
+  @IsString()
+  desktopImage?: string;
+
+  @IsOptional()
+  @IsString()
+  mobileImage?: string;
 
   @IsOptional()
   @IsString()

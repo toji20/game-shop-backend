@@ -17,6 +17,17 @@ export class FaqItemDto {
   answer: string;
 }
 
+export class WarningItemDto {
+  @IsString()
+  title: string;
+
+  @IsString()
+  text: string;
+
+  @IsEnum(['danger', 'alert'])
+  variant: 'danger' | 'alert';
+}
+
 export class GameDto {
   @IsString()
   name: string;
@@ -84,4 +95,10 @@ export class GameDto {
   @ValidateNested({ each: true })
   @Type(() => FaqItemDto)
   faq?: FaqItemDto[];
+
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => WarningItemDto)
+  warnings?: WarningItemDto[];
 }

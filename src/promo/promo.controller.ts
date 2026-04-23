@@ -25,8 +25,6 @@ import { CurrentUser } from 'src/user/decorators/user.decorator';
 export class PromoController {
   constructor(private readonly promoService: PromoService) {}
 
-  // ── Только для админа/менеджера ───────────────────────────────────────────
-
   @Auth()
   @CheckRole(Role.ADMIN, Role.MANAGER)
   @Get()
@@ -67,15 +65,19 @@ export class PromoController {
     return this.promoService.delete(id);
   }
 
-  // ── Для авторизованных пользователей ──────────────────────────────────────
   @Auth()
-  @Get('check/:code')
-  async check(@Param('code') code: string, @CurrentUser('id') userId: string) {
-    return this.promoService.check(code, userId);
+  @UsePipes(new ValidationPipe({ transform: true }))
+  @HttpCode(200)
+  @Post('check')
+  async check(
+    @Body() dto: ApplyPromoCodeDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.promoService.check(dto.code, userId, dto.target);
   }
-  // Проверить промокод перед оформлением заказа
+
   @Auth()
-  @UsePipes(new ValidationPipe())
+  @UsePipes(new ValidationPipe({ transform: true }))
   @HttpCode(200)
   @Post('apply')
   async apply(

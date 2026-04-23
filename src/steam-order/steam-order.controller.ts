@@ -19,9 +19,16 @@ import { OptionalJwtGuard } from 'src/auth/guards/optional-jwt.guard';
 export class SteamOrderController {
   constructor(private readonly steamOrderService: SteamOrderService) {}
 
+  @Post('check')
+  @HttpCode(200)
+  @UsePipes(new ValidationPipe({ transform: true }))
+  async checkPost(@Body() dto: SteamCheckDto) {
+    return this.steamOrderService.checkAccount(dto);
+  }
+
   @Get('check')
   @UsePipes(new ValidationPipe({ transform: true }))
-  async check(@Query() dto: SteamCheckDto) {
+  async checkGet(@Query() dto: SteamCheckDto) {
     return this.steamOrderService.checkAccount(dto);
   }
 

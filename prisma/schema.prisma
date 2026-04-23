@@ -44,7 +44,8 @@ model Banner {
   description String
   link String?
 
-  images String[]
+  desktopImage String?
+  mobileImage String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -88,7 +89,7 @@ model Game {
   ageLimit String?
   genre String?
 
-  warning String?
+  warnings Json?
   faq Json?
   instructions String[]
 
@@ -106,10 +107,29 @@ model Game {
   fields    GameField[]
   servers   GameServer[]
   positions Position[]
+  positionCategories PositionCategory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model PositionCategory {
+  id Int @id @default(autoincrement())
+
+  name String
+
+  game   Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
+  gameId Int
+
+  positions Position[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([gameId, name])
+  @@map("position_category")
+}
+
 
 model Position {
   id                  Int     @id @default(autoincrement())
@@ -124,6 +144,9 @@ model Position {
 
   game   Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
   gameId Int
+
+  category   PositionCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  categoryId Int?
 
   orderItems OrderItem[]
 
@@ -237,7 +260,7 @@ model OrderItem {
 model SteamOrder {
   id String @id @default(cuid())
 
-  account String 
+  account String
   amount  Decimal
   total   Decimal
   commission Int?
@@ -252,38 +275,49 @@ model SteamOrder {
   user   User?   @relation(fields: [userId], references: [id])
   userId String? @map("user_id")
 
+  promoCodes PromoCodeUse?
+
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("steam_order")
 }
 
+
 model PromoCode {
-    id         String         @id @default(cuid())
-    code       String         @unique
-    discount   Int
-    isActive   Boolean        @default(true)
-    usageLimit Int?
-    usageCount Int            @default(0)
-    expiresAt  DateTime?
-    uses       PromoCodeUse[]
-    createdAt  DateTime       @default(now())
-    updatedAt  DateTime       @updatedAt
+  id         String         @id @default(cuid())
+  code       String         @unique
+  discount   Int
+  scope      PromoCodeScope @default(ALL)
+  isActive   Boolean        @default(true)
+  usageLimit Int?
+  usageCount Int            @default(0)
+  expiresAt  DateTime?
+  uses       PromoCodeUse[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
 }
 
 model PromoCodeUse {
-    id          String    @id @default(cuid())
-    promoCode   PromoCode @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
-    promoCodeId String
-    user        User      @relation(fields: [userId], references: [id])
-    userId      String
-    order       Order?    @relation(fields: [orderId], references: [id])
-    orderId     String?   @unique 
-    createdAt   DateTime  @default(now())
+  id           String      @id @default(cuid())
+  promoCode    PromoCode   @relation(fields: [promoCodeId], references: [id], onDelete: Cascade)
+  promoCodeId  String
+  user         User        @relation(fields: [userId], references: [id])
+  userId       String
+  order        Order?      @relation(fields: [orderId], references: [id])
+  orderId      String?     @unique
+  steamOrder   SteamOrder? @relation(fields: [steamOrderId], references: [id])
+  steamOrderId String?     @unique
+  createdAt    DateTime    @default(now())
 
-    @@unique([promoCodeId, userId])
+  @@unique([promoCodeId, userId])
 }
 
+enum PromoCodeScope {
+  ALL
+  GAMES_ONLY
+  STEAM_ONLY
+}
 
 enum EnumOrderStatus {
   PENDING

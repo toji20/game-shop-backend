@@ -11,7 +11,11 @@ export class ReviewService {
       orderBy: { createdAt: 'desc' },
       include: {
         game: true,
-        user: true,
+        user: {
+          include: {
+            avatar: true,
+          },
+        },
       },
     });
 
@@ -26,7 +30,14 @@ export class ReviewService {
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
-        include: { user: true, game: true },
+        include: {
+          user: {
+            include: {
+              avatar: true,
+            },
+          },
+          game: true,
+        },
       }),
       this.prisma.review.count(),
     ]);
@@ -46,7 +57,11 @@ export class ReviewService {
         gameId,
       },
       select: {
-        user: true,
+        user: {
+          include: {
+            avatar: true,
+          },
+        },
       },
     });
     return store;
@@ -59,7 +74,11 @@ export class ReviewService {
         userId,
       },
       include: {
-        user: true,
+        user: {
+          include: {
+            avatar: true,
+          },
+        },
       },
     });
     if (!review) {
@@ -79,7 +98,13 @@ export class ReviewService {
         orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
-        include: { user: true },
+        include: {
+          user: {
+            include: {
+              avatar: true,
+            },
+          },
+        },
       }),
       this.prisma.review.count({
         where: { gameId: Number(gameId) },
@@ -140,7 +165,11 @@ export class ReviewService {
         },
       },
       include: {
-        user: true,
+        user: {
+          include: {
+            avatar: true,
+          },
+        },
       },
     });
   }

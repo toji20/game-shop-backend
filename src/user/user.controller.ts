@@ -55,6 +55,15 @@ export class UserController {
   }
 
   @Auth()
+  @Patch('profile/avatar')
+  async updateAvatar(
+    @CurrentUser('id') userId: string,
+    @Body('avatarId') avatarId: string,
+  ) {
+    return this.userService.updateAvatar(userId, avatarId);
+  }
+
+  @Auth()
   @Patch('profile/favorites/:gameId')
   async toogleFavorite(
     @CurrentUser('id') userId: string,

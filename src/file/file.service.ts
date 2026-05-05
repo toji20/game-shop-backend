@@ -49,7 +49,7 @@ export class FileService {
       return;
     }
 
-    await this.s3!.send(
+    await this.s3.send(
       new DeleteObjectCommand({
         Bucket: this.bucket,
         Key: key,
@@ -102,7 +102,7 @@ export class FileService {
           ? await sharp(file.buffer).webp({ quality: 85 }).toBuffer()
           : file.buffer;
 
-        await this.s3!.send(
+        await this.s3.send(
           new PutObjectCommand({
             Bucket: this.bucket,
             Key: key,

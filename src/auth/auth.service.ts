@@ -14,7 +14,7 @@ import { UserService } from 'src/user/user.service';
 
 @Injectable()
 export class AuthService {
-  EXPIRE_DAY_REFRESH_TOKEN = 1;
+  EXPIRE_DAY_REFRESH_TOKEN = 30;
   REFRESH_TOKEN_NAME = 'refreshToken';
   private transporter: nodemailer.Transporter;
 

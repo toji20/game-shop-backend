@@ -87,4 +87,7 @@ export class PrismaService implements OnModuleInit {
   get positionCategory() {
     return this.client.positionCategory;
   }
+  get avatar() {
+    return this.client.avatar;
+  }
 }

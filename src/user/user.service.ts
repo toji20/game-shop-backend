@@ -12,6 +12,7 @@ export class UserService {
     const user = await this.prisma.user.findUnique({
       where: { id },
       include: {
+        avatar: true,
         favorites: { include: { category: true } },
         steamOrders: {
           orderBy: {
@@ -92,6 +93,13 @@ export class UserService {
     return this.prisma.user.update({
       where: { id },
       data: { role },
+    });
+  }
+
+  async updateAvatar(userId: string, avatarId: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { avatarId },
     });
   }
 

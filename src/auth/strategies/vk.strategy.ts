@@ -2,9 +2,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-import * as passport from 'passport';
 import { Strategy } from 'passport-custom';
-
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const passport = require('passport');
 @Injectable()
 export class VkStrategy {
   private readonly clientId: string;

@@ -1,10 +1,12 @@
-/* eslint-disable @typescript-eslint/no-misused-promises */
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
-import { Strategy } from 'passport-custom';
+
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const passport = require('passport');
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { Strategy } = require('passport-custom');
+
 @Injectable()
 export class VkStrategy {
   private readonly clientId: string;
@@ -17,17 +19,18 @@ export class VkStrategy {
     this.callbackURL =
       configService.getOrThrow('SERVER_URL') + '/api/auth/vk/callback';
 
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
     passport.use(
       'vk',
       new Strategy(async (req: any, done: any) => {
         try {
           const code = req.query.code as string;
-          const state = req.query.state as string;
           const deviceId = req.query.device_id as string;
+          const state = req.query.state as string;
 
-          if (!code) return done(new Error('No code provided'));
+          if (!code) return done(new Error('No code'));
 
-          const tokenResponse = await axios.post(
+          const tokenRes = await axios.post(
             'https://id.vk.com/oauth2/auth',
             new URLSearchParams({
               grant_type: 'authorization_code',
@@ -43,9 +46,9 @@ export class VkStrategy {
             },
           );
 
-          const { access_token } = tokenResponse.data;
+          const { access_token } = tokenRes.data;
 
-          const userResponse = await axios.post(
+          const userRes = await axios.post(
             'https://id.vk.com/oauth2/user_info',
             new URLSearchParams({
               client_id: this.clientId,
@@ -56,15 +59,15 @@ export class VkStrategy {
             },
           );
 
-          const vkUser = userResponse.data.user;
+          const u = userRes.data.user;
 
           done(null, {
-            email: vkUser.email,
-            name: `${vkUser.first_name} ${vkUser.last_name}`,
-            picture: vkUser.avatar,
+            email: u.email,
+            name: `${u.first_name} ${u.last_name}`,
+            picture: u.avatar,
           });
-        } catch (error) {
-          done(error);
+        } catch (e) {
+          done(e);
         }
       }),
     );

@@ -22,7 +22,7 @@ export class DonateHubService {
   async getGames() {
     try {
       const { data } = await firstValueFrom(
-        this.http.get(`${process.env.DONATEHUB_URL}`, {
+        this.http.get(`${process.env.DONATEHUB_URL}/game`, {
           headers: this.headers,
         }),
       );
@@ -39,7 +39,7 @@ export class DonateHubService {
   async getGameById(id: number) {
     try {
       const { data } = await firstValueFrom(
-        this.http.get(`${process.env.DONATEHUB_URL}/${id}`, {
+        this.http.get(`${process.env.DONATEHUB_URL}/game/${id}`, {
           headers: this.headers,
         }),
       );

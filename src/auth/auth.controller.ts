@@ -88,35 +88,35 @@ export class AuthController {
     return res.redirect(`${process.env['CLIENT_URL']}/profile`);
   }
 
-  @Get('vk')
-  async vkAuth(@Res() res: Response) {
-    const clientId = process.env.VK_CLIENT_ID;
-    const callbackURL = process.env.SERVER_URL + '/api/auth/vk/callback';
-    const state = Math.random().toString(36).substring(2);
-    const deviceId = Math.random().toString(36).substring(2);
+  // @Get('vk')
+  // async vkAuth(@Res() res: Response) {
+  //   const clientId = process.env.VK_CLIENT_ID;
+  //   const callbackURL = process.env.SERVER_URL + '/api/auth/vk/callback';
+  //   const state = Math.random().toString(36).substring(2);
+  //   const deviceId = Math.random().toString(36).substring(2);
 
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: clientId!,
-      redirect_uri: callbackURL,
-      scope: 'email',
-      state,
-      device_id: deviceId,
-    });
+  //   const params = new URLSearchParams({
+  //     response_type: 'code',
+  //     client_id: clientId!,
+  //     redirect_uri: callbackURL,
+  //     scope: 'email',
+  //     state,
+  //     device_id: deviceId,
+  //   });
 
-    return res.redirect(`https://id.vk.com/oauth2/auth?${params.toString()}`);
-  }
+  //   return res.redirect(`https://id.vk.com/oauth2/auth?${params.toString()}`);
+  // }
 
-  @Get('vk/callback')
-  @UseGuards(AuthGuard('vk'))
-  async vkCallback(@Req() req: any, @Res({ passthrough: true }) res: Response) {
-    const { refreshToken, ...response } =
-      await this.authService.validateOAuthLogin(req);
+  // @Get('vk/callback')
+  // @UseGuards(AuthGuard('vk'))
+  // async vkCallback(@Req() req: any, @Res({ passthrough: true }) res: Response) {
+  //   const { refreshToken, ...response } =
+  //     await this.authService.validateOAuthLogin(req);
 
-    this.authService.addRefreshTokenToResponse(res, refreshToken);
+  //   this.authService.addRefreshTokenToResponse(res, refreshToken);
 
-    return res.redirect(`${process.env['CLIENT_URL']}/profile`);
-  }
+  //   return res.redirect(`${process.env['CLIENT_URL']}/profile`);
+  // }
 
   @Post('send-code')
   @HttpCode(200)

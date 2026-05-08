@@ -9,7 +9,6 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { Yandextrategy } from './strategies/yandex.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { Module } from '@nestjs/common';
-import { VkStrategy } from './strategies/vk.strategy';
 
 @Module({
   imports: [
@@ -32,7 +31,6 @@ import { VkStrategy } from './strategies/vk.strategy';
     JwtStrategy,
     GoogleStrategy,
     Yandextrategy,
-    VkStrategy,
   ],
 })
 export class AuthModule {}

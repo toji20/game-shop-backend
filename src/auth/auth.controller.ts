@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   Post,
+  Query,
   Req,
   Res,
   UnauthorizedException,
@@ -13,38 +14,12 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { AuthDto } from 'src/user/dto/auth.dto';
-import e, { type Request, type Response } from 'express';
+import { type Request, type Response } from 'express';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
-
-  // @UsePipes(new ValidationPipe())
-  // @HttpCode(200)
-  // @Post('login')
-  // async login(@Body() dto: AuthDto, @Res({ passthrough: true }) res: Response) {
-  //   const { refreshToken, ...response } = await this.authService.login(dto);
-
-  //   this.authService.addRefreshTokenToResponse(res, refreshToken);
-
-  //   return response;
-  // }
-
-  // @UsePipes(new ValidationPipe())
-  // @HttpCode(200)
-  // @Post('register')
-  // async register(
-  //   @Body() dto: AuthDto,
-  //   @Res({ passthrough: true }) res: Response,
-  // ) {
-  //   const { refreshToken, ...response } = await this.authService.register(dto);
-
-  //   this.authService.addRefreshTokenToResponse(res, refreshToken);
-
-  //   return response;
-  // }
 
   @UsePipes(new ValidationPipe())
   @HttpCode(200)
@@ -95,6 +70,10 @@ export class AuthController {
     return res.redirect(`${process.env['CLIENT_URL']}/profile`);
   }
 
+  @Get('yandex')
+  @UseGuards(AuthGuard('yandex'))
+  async yandexAuth(@Req() _req) {}
+
   @Get('yandex/callback')
   @UseGuards(AuthGuard('yandex'))
   async yandexAuthCallback(
@@ -109,13 +88,24 @@ export class AuthController {
     return res.redirect(`${process.env['CLIENT_URL']}/profile`);
   }
 
-  @Get('yandex')
-  @UseGuards(AuthGuard('yandex'))
-  async yandexAuth(@Req() _req) {}
-
   @Get('vk')
-  @UseGuards(AuthGuard('vk'))
-  async vkAuth() {}
+  async vkAuth(@Res() res: Response) {
+    const clientId = process.env.VK_CLIENT_ID;
+    const callbackURL = process.env.SERVER_URL + '/api/auth/vk/callback';
+    const state = Math.random().toString(36).substring(2);
+    const deviceId = Math.random().toString(36).substring(2);
+
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: clientId!,
+      redirect_uri: callbackURL,
+      scope: 'email',
+      state,
+      device_id: deviceId,
+    });
+
+    return res.redirect(`https://id.vk.com/oauth2/auth?${params.toString()}`);
+  }
 
   @Get('vk/callback')
   @UseGuards(AuthGuard('vk'))
@@ -127,6 +117,7 @@ export class AuthController {
 
     return res.redirect(`${process.env['CLIENT_URL']}/profile`);
   }
+
   @Post('send-code')
   @HttpCode(200)
   async sendCode(@Body('email') email: string) {

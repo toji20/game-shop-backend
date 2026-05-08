@@ -1,35 +1,72 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
-/* eslint-disable @typescript-eslint/no-unsafe-function-type */
+/* eslint-disable @typescript-eslint/no-misused-promises */
 import { Injectable } from '@nestjs/common';
-import { PassportStrategy } from '@nestjs/passport';
-import { Strategy } from 'passport-vkontakte';
 import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
+import * as passport from 'passport';
+import { Strategy } from 'passport-custom';
 
 @Injectable()
-export class VkStrategy extends PassportStrategy(Strategy, 'vk') {
+export class VkStrategy {
+  private readonly clientId: string;
+  private readonly clientSecret: string;
+  private readonly callbackURL: string;
+
   constructor(private configService: ConfigService) {
-    super({
-      clientID: configService.getOrThrow('VK_CLIENT_ID'),
-      clientSecret: configService.getOrThrow('VK_CLIENT_SECRET'),
-      callbackURL:
-        configService.getOrThrow('SERVER_URL') + '/api/auth/vk/callback',
-      scope: ['email'],
-    } as any);
-  }
+    this.clientId = configService.getOrThrow('VK_CLIENT_ID');
+    this.clientSecret = configService.getOrThrow('VK_CLIENT_SECRET');
+    this.callbackURL =
+      configService.getOrThrow('SERVER_URL') + '/api/auth/vk/callback';
 
-  async validate(
-    accessToken: string,
-    refreshToken: string,
-    params: any,
-    profile: any,
-    done: Function,
-  ) {
-    const user = {
-      email: params.email,
-      name: profile.displayName,
-      picture: profile.photos?.[0]?.value,
-    };
+    passport.use(
+      'vk',
+      new Strategy(async (req: any, done: any) => {
+        try {
+          const code = req.query.code as string;
+          const state = req.query.state as string;
+          const deviceId = req.query.device_id as string;
 
-    done(null, user);
+          if (!code) return done(new Error('No code provided'));
+
+          const tokenResponse = await axios.post(
+            'https://id.vk.com/oauth2/auth',
+            new URLSearchParams({
+              grant_type: 'authorization_code',
+              code,
+              client_id: this.clientId,
+              client_secret: this.clientSecret,
+              redirect_uri: this.callbackURL,
+              device_id: deviceId || '',
+              state: state || '',
+            }).toString(),
+            {
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            },
+          );
+
+          const { access_token } = tokenResponse.data;
+
+          const userResponse = await axios.post(
+            'https://id.vk.com/oauth2/user_info',
+            new URLSearchParams({
+              client_id: this.clientId,
+              access_token,
+            }).toString(),
+            {
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            },
+          );
+
+          const vkUser = userResponse.data.user;
+
+          done(null, {
+            email: vkUser.email,
+            name: `${vkUser.first_name} ${vkUser.last_name}`,
+            picture: vkUser.avatar,
+          });
+        } catch (error) {
+          done(error);
+        }
+      }),
+    );
   }
 }

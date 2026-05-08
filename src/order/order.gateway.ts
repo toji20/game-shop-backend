@@ -6,9 +6,10 @@ import {
 import { Server } from 'socket.io';
 
 @WebSocketGateway({
+  path: '/api/socket.io',
   cors: {
-    origin: '*', // временно для теста
-    credentials: false,
+    origin: process.env.CLIENT_URL, // временно для теста
+    credentials: true,
   },
 })
 export class OrderGateway implements OnGatewayInit {

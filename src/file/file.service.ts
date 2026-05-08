@@ -13,18 +13,18 @@ import sharp from 'sharp';
 export class FileService {
   private s3: S3Client;
   private readonly bucket: string;
-  private readonly publicUrl: string;
+  private readonly cdnUrl: string;
   private readonly isDev: boolean;
 
   constructor() {
     this.isDev = process.env.NODE_ENV !== 'production';
     this.bucket = process.env.S3_BUCKET ?? '';
-    this.publicUrl = process.env.R2_PUBLIC_URL ?? '';
+    this.cdnUrl = process.env.CDN_URL ?? '';
 
     if (!this.isDev) {
       this.s3 = new S3Client({
-        region: 'ru-central1',
-        endpoint: 'https://storage.yandexcloud.net',
+        region: process.env.S3_REGION ?? 'ru-1',
+        endpoint: process.env.S3_ENDPOINT,
         credentials: {
           accessKeyId: process.env.S3_ACCESS_KEY ?? '',
           secretAccessKey: process.env.S3_SECRET_KEY ?? '',
@@ -40,7 +40,7 @@ export class FileService {
     if (this.isDev) {
       return this.saveLocally(files, folder);
     }
-    return this.saveToR2(files, folder);
+    return this.saveToS3(files, folder);
   }
 
   async deleteFile(key: string): Promise<void> {
@@ -79,14 +79,14 @@ export class FileService {
         await writeFile(`${uploadedFolder}/${name}`, body);
 
         return {
-          url: `${process.env.SERVER_URL}/uploads/${folder}/${name}`,
+          url: `http://localhost:5000/uploads/${folder}/${name}`,
           name: `${folder}/${name}`,
         };
       }),
     );
   }
 
-  private async saveToR2(
+  private async saveToS3(
     files: Express.Multer.File[],
     folder: string,
   ): Promise<FileResponse[]> {
@@ -112,8 +112,9 @@ export class FileService {
           }),
         );
 
+        // Отдаём URL через CDN а не напрямую через S3
         return {
-          url: `https://storage.yandexcloud.net/${this.bucket}/${key}`,
+          url: `${this.cdnUrl}/${key}`,
           name: key,
         };
       }),

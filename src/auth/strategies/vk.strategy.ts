@@ -11,7 +11,8 @@ export class VkStrategy extends PassportStrategy(Strategy, 'vk') {
     super({
       clientID: configService.getOrThrow('VK_CLIENT_ID'),
       clientSecret: configService.getOrThrow('VK_CLIENT_SECRET'),
-      callbackURL: configService.getOrThrow('SERVER_URL') + '/auth/vk/callback',
+      callbackURL:
+        configService.getOrThrow('SERVER_URL') + '/api/auth/vk/callback',
       scope: ['email'],
     } as any);
   }

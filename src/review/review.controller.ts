@@ -68,9 +68,9 @@ export class ReviewController {
   }
 
   @HttpCode(200)
-  @Auth()
+  @Auth('ADMIN', 'MANAGER')
   @Delete(':id')
-  async delete(@Param('id') id: string, @CurrentUser('id') userId: string) {
-    return this.reviewService.delete(id, userId);
+  async delete(@Param('id') id: string) {
+    return this.reviewService.delete(id);
   }
 }

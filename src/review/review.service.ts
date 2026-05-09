@@ -174,8 +174,7 @@ export class ReviewService {
     });
   }
 
-  async delete(id: string, userId: string) {
-    await this.getById(id, userId);
+  async delete(id: string) {
     return this.prisma.review.delete({
       where: {
         id,

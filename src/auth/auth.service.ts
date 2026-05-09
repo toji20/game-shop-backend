@@ -26,9 +26,8 @@ export class AuthService {
   ) {
     this.transporter = nodemailer.createTransport({
       host: this.configService.get('SMTP_HOST'),
-      port: 587,
-      secure: false, // для STARTTLS
-      requireTLS: true,
+      port: Number(this.configService.get('SMTP_PORT')),
+      secure: true,
       auth: {
         user: this.configService.get('SMTP_USER'),
         pass: this.configService.get('SMTP_PASS'),
@@ -81,7 +80,7 @@ export class AuthService {
     const user = await this.UserService.getByEmail(email);
     if (!user) {
       throw new NotFoundException(
-        'Пользователь с таким email не найден. Войдите через VK или Google.',
+        'Пользователь с таким email не найден. Войдите через Google.',
       );
     }
 

@@ -126,7 +126,11 @@ export class GameService {
             createdAt: 'desc',
           },
         },
-        positions: true,
+        positions: {
+          where: {
+            isActive: true,
+          },
+        },
         fields: true,
         servers: true,
         positionCategories: true,

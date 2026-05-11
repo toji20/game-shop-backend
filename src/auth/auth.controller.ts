@@ -62,12 +62,14 @@ export class AuthController {
     @Req() req: any,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { refreshToken, ...response } =
+    const { refreshToken, accessToken, ...response } =
       await this.authService.validateOAuthLogin(req);
 
     this.authService.addRefreshTokenToResponse(res, refreshToken);
 
-    return res.redirect(`${process.env['CLIENT_URL']}/profile`);
+    return res.redirect(
+      `${process.env['CLIENT_URL']}/profile?token=${accessToken}`,
+    );
   }
 
   @Get('yandex')
@@ -80,12 +82,14 @@ export class AuthController {
     @Req() req: any,
     @Res({ passthrough: true }) res: Response,
   ) {
-    const { refreshToken, ...response } =
+    const { refreshToken, accessToken, ...response } =
       await this.authService.validateOAuthLogin(req);
 
     this.authService.addRefreshTokenToResponse(res, refreshToken);
 
-    return res.redirect(`${process.env['CLIENT_URL']}/profile`);
+    return res.redirect(
+      `${process.env['CLIENT_URL']}/profile?token=${accessToken}`,
+    );
   }
 
   // @Get('vk')

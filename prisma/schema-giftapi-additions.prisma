@@ -1,0 +1,47 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ... ваши существующие модели ...
+
+// GiftAPI Product Catalog
+model GiftApiProduct {
+  id                    String   @id
+  giftapiProductId      String   @unique
+  giftapiSkuId          String   @unique
+  name                  String
+  description           String?
+  type                  String   // voucher, recharge_fixed, recharge, voucher_open_range, esim, other
+  denominationType      String   // fixed, custom
+  category              String
+  price                 Decimal? @db.Decimal(10, 2)
+  currency              String   @default("USD")
+  stock                 Int      @default(0)
+  maxPerOrder           Int      @default(1)
+  attributes            Json?
+  image                 String?
+  syncedAt              DateTime @updatedAt
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+  deletedAt             DateTime?
+
+  @@index([giftapiSkuId])
+  @@index([giftapiProductId])
+  @@index([type])
+  @@index([category])
+}
+
+// Add these fields to your existing Order model:
+// giftapiOrderId        String?
+// giftapiExternalId     String?   @unique
+// giftapiStatus         String?
+// giftapiDeliveryData   Json?
+// giftapiProductId      String?

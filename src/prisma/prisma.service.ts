@@ -90,4 +90,7 @@ export class PrismaService implements OnModuleInit {
   get avatar() {
     return this.client.avatar;
   }
+  get giftApiWebhookEvent() {
+    return this.client.giftApiWebhookEvent;
+  }
 }

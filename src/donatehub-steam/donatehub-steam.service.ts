@@ -6,7 +6,7 @@ import { DonateHubStatus } from '@prisma/client';
 @Injectable()
 export class DonatehubSteamService {
   private readonly logger = new Logger(DonatehubSteamService.name);
-  private readonly baseUrl = process.env.DONATEHUB_URL;
+  private readonly baseUrl = process.env.GIFTAPI_URL;
 
   constructor(
     private readonly configService: ConfigService,
@@ -14,7 +14,7 @@ export class DonatehubSteamService {
   ) {}
 
   private get token(): string {
-    return this.configService.get<string>('DONATEHUB_TOKEN') ?? '';
+    return this.configService.get<string>('GIFTAPI_TOKEN') ?? '';
   }
 
   private get headers() {

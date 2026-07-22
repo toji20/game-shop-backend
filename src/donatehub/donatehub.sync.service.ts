@@ -77,9 +77,10 @@ export class DonateHubSyncService {
         );
         await this.syncGame(gameDetails);
       } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error);
         console.error(
           `Ошибка при синхронизации игры ${gameSummary.id}:`,
-          error.message || error,
+          errMsg,
         );
       }
     }
@@ -215,9 +216,10 @@ export class DonateHubSyncService {
         await Promise.all(createPromises);
         console.log(`Батч ${Math.floor(i / batchSize) + 1} успешно обработан`);
       } catch (error) {
+        const errMsg = error instanceof Error ? error.message : String(error);
         console.error(
           `Ошибка при обработке батча ${Math.floor(i / batchSize) + 1}:`,
-          error.message || error,
+          errMsg,
         );
       }
     }

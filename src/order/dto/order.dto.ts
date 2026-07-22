@@ -18,7 +18,7 @@ export class OrderDto {
       'Статус заказа должен быть один из: ' +
       Object.values(EnumOrderStatus).join(', '),
   })
-  status: EnumOrderStatus;
+  status?: EnumOrderStatus;
 
   @IsOptional()
   @IsEnum(PaymentMethod, {
@@ -31,11 +31,11 @@ export class OrderDto {
   @IsArray({ message: 'В заказе нет ни одного товара' })
   @ValidateNested({ each: true })
   @Type(() => OrderItemDto)
-  items: OrderItemDto[];
+  items!: OrderItemDto[];
 
   @IsOptional()
   @IsEnum(OrderType)
-  type: OrderType;
+  type?: OrderType;
 
   @IsOptional()
   @IsString()
@@ -44,16 +44,16 @@ export class OrderDto {
 
 export class OrderItemDto {
   @IsNumber({}, { message: 'Количество должно быть числом' })
-  quantity: number;
+  quantity!: number;
 
   @IsNumber({}, { message: 'Цена должна быть числом' })
-  price: number;
+  price!: number;
 
   @IsNumber({}, { message: 'Айди игры должен быть числом' })
-  gameId: number;
+  gameId!: number;
 
   @IsNumber({}, { message: 'Айди позиции должен быть числом' })
-  positionId: number;
+  positionId!: number;
 
   @IsOptional()
   @IsObject()

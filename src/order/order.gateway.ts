@@ -14,7 +14,7 @@ import { Server } from 'socket.io';
 })
 export class OrderGateway implements OnGatewayInit {
   @WebSocketServer()
-  server: Server;
+  server!: Server;
 
   afterInit(server: Server) {
     server.engine.on('initial_headers', (headers: any) => {

@@ -11,26 +11,26 @@ import { Type } from 'class-transformer';
 
 export class FaqItemDto {
   @IsString()
-  question: string;
+  question!: string;
 
   @IsString()
-  answer: string;
+  answer!: string;
 }
 
 export class WarningItemDto {
   @IsString()
-  title: string;
+  title!: string;
 
   @IsString()
-  text: string;
+  text!: string;
 
   @IsEnum(['danger', 'alert'])
-  variant: 'danger' | 'alert';
+  variant!: 'danger' | 'alert';
 }
 
 export class GameDto {
   @IsString()
-  name: string;
+  name!: string;
 
   @IsOptional()
   @IsString()
@@ -74,7 +74,7 @@ export class GameDto {
   instructions?: string[];
 
   @IsBoolean()
-  isActive: boolean;
+  isActive!: boolean;
 
   @IsOptional()
   @IsBoolean()
@@ -88,7 +88,7 @@ export class GameDto {
     message:
       'Статус должен быть одним из: ' + Object.values(OrderType).join(', '),
   })
-  type: OrderType;
+  type!: OrderType;
 
   @IsOptional()
   @IsArray()

@@ -39,6 +39,9 @@ export class OrderService {
     this.checkout = new YooCheckout({ shopId, secretKey });
   }
 
+  /**
+   * Создать заказ с платежом через YooKassa
+   */
   async createPayment(dto: OrderDto, userId: string | null) {
     let total = dto.items.reduce(
       (acc, item) => acc + item.price * item.quantity,
@@ -139,6 +142,43 @@ export class OrderService {
     }
 
     return { order, payment };
+  }
+
+  /**
+   * Создать заказ товара из GiftAPI каталога
+   * Заказ создается в локальной БД, а затем отправляется в GiftAPI
+   */
+  async createGiftapiOrder(data: {
+    skuId: string;
+    fields: Record<string, any>;
+    giftapiProductId: string;
+    userId?: string;
+  }) {
+    const order = await this.prisma.order.create({
+      data: {
+        status: EnumOrderStatus.PENDING,
+        type: OrderType.AUTO,
+        total: 0, // Итоговую сумму заполнит GiftAPI
+        userId: data.userId ?? undefined,
+        giftapiProductId: data.giftapiProductId,
+        items: {
+          create: {
+            quantity: 1,
+            price: 0,
+            fields: data.fields,
+            game: undefined, // GiftAPI заказы не связаны с играми
+            position: undefined,
+          },
+        },
+      },
+      include: { items: true },
+    });
+
+    this.logger.log(
+      `GiftAPI заказ создан локально: ${order.id}, SKU: ${data.skuId}`,
+    );
+
+    return order;
   }
 
   async updateStatus(dto: PaymentStatusDto) {

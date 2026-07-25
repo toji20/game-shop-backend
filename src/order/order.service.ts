@@ -55,9 +55,67 @@ export class OrderService {
   }
 
   /**
-   * Создать заказ с платежом через YooKassa (игры / DonateHub)
+   * Создать заказ с платежом через YooKassa.
+   * Поддерживает смешанную корзину:
+   *  - товары старого каталога (Position, по gameId/positionId)
+   *  - товары GiftAPI (по giftapiProductId)
+   *
+   * Для GiftAPI-товаров цена ВСЕГДА берётся из своей БД (GiftApiProduct.price),
+   * а не из dto — иначе цену можно подделать на фронте.
    */
   async createPayment(dto: OrderDto, userId: string | null) {
+    const positionItems = dto.items.filter((i) => !!i.positionId);
+    const giftapiItems = dto.items.filter((i) => !!i.giftapiProductId);
+
+    // ── Подтягиваем реальные цены GiftAPI-товаров и валидируем их ──
+
+    const giftapiProducts = giftapiItems.length
+      ? await this.prisma.giftApiProduct.findMany({
+          where: {
+            id: { in: giftapiItems.map((i) => i.giftapiProductId!) },
+          },
+        })
+      : [];
+
+    const giftapiProductMap = new Map(giftapiProducts.map((p) => [p.id, p]));
+
+    for (const item of giftapiItems) {
+      const product = giftapiProductMap.get(item.giftapiProductId!);
+
+      if (!product) {
+        throw new NotFoundException(
+          `Товар GiftAPI ${item.giftapiProductId} не найден в БД`,
+        );
+      }
+
+      if (!product.isActive) {
+        throw new BadRequestException(
+          `Товар ${product.id} недоступен для заказа`,
+        );
+      }
+
+      if (product.price === null || product.price === undefined) {
+        throw new BadRequestException(
+          `У товара ${product.id} не задана цена (price is null)`,
+        );
+      }
+
+      if (item.quantity > product.maxPerOrder) {
+        throw new BadRequestException(
+          `Максимум ${product.maxPerOrder} шт. товара ${product.id} за один заказ`,
+        );
+      }
+
+      if (product.stock > 0 && item.quantity > product.stock) {
+        throw new BadRequestException(
+          `Недостаточно товара ${product.id} на складе`,
+        );
+      }
+
+      // цена с фронта игнорируется, подставляем доверенную из БД
+      item.price = Number(product.price);
+    }
+
     let total = dto.items.reduce(
       (acc, item) => acc + item.price * item.quantity,
       0,
@@ -90,12 +148,26 @@ export class OrderService {
 
     this.logger.log(`Комиссия x${commissionRate} (${method}), итого: ${total}`);
 
-    const gameIds = [...new Set(dto.items.map((i) => Number(i.gameId)))];
-    const allGameFields = await this.prisma.gameField.findMany({
-      where: { gameId: { in: gameIds } },
-    });
+    // ── Легаси-маппинг полей для Position-товаров (по numeric id -> label) ──
+
+    const gameIds = [...new Set(positionItems.map((i) => Number(i.gameId)))];
+    const allGameFields = gameIds.length
+      ? await this.prisma.gameField.findMany({
+          where: { gameId: { in: gameIds } },
+        })
+      : [];
 
     const orderItemsData = dto.items.map((item: OrderItemDto) => {
+      if (item.giftapiProductId) {
+        // GiftAPI: fields уже приходят с ключами по code поля, релейблинг не нужен
+        return {
+          quantity: item.quantity,
+          price: item.price,
+          fields: item.fields ?? {},
+          giftapiProduct: { connect: { id: item.giftapiProductId } },
+        };
+      }
+
       const mappedFields: Record<string, string> = {};
 
       if (item.fields && Object.keys(item.fields).length > 0) {
@@ -105,7 +177,7 @@ export class OrderService {
 
         for (const [fieldId, value] of Object.entries(item.fields)) {
           const field = gameFields.find((f) => f.id === Number(fieldId));
-          mappedFields[field ? field.label : fieldId] = value;
+          mappedFields[field ? field.label : fieldId] = value as string;
         }
       }
 
@@ -160,7 +232,8 @@ export class OrderService {
   }
 
   /**
-   * Создать заказ товара из каталога GiftAPI с оплатой через YooKassa.
+   * Создать заказ товара из каталога GiftAPI с оплатой через YooKassa
+   * (быстрая покупка одного товара вне корзины — "купить сейчас").
    *
    * Флоу:
    * 1. Пользователь открывает каталог (GiftApiProduct из своей БД).
@@ -171,6 +244,10 @@ export class OrderService {
    * 5. Только ПОСЛЕ вебхука payment.succeeded (см. handleGameOrderPayment)
    *    заказ реально уходит в GiftAPI — деньги там списываются с баланса,
    *    только когда деньги реально получены нами через YooKassa.
+   *
+   * Примечание: логика дублирует price-lookup из createPayment. Если корзина
+   * теперь умеет отправлять GiftAPI-товары через createPayment, этот метод
+   * можно оставить только для сценария "купить в один клик" со страницы товара.
    */
   async createGiftapiPayment(
     dto: CreateGiftApiPaymentDto,
@@ -373,8 +450,8 @@ export class OrderService {
     }
 
     const isManual = existing.type === OrderType.MANUAL;
-    const giftapiItem = existing.items.find((i) => i.giftapiProductId);
-    const isGiftapi = !!giftapiItem;
+    const giftapiItems = existing.items.filter((i) => i.giftapiProductId);
+    const isGiftapi = giftapiItems.length > 0;
 
     const order = await this.prisma.order.update({
       where: { id: orderId },
@@ -398,15 +475,26 @@ export class OrderService {
     );
 
     // Деньги реально получены через YooKassa — теперь можно отправлять
-    // заказ в GiftAPI (там спишется наш баланс и запустится доставка)
-    if (isGiftapi && giftapiItem?.giftapiProduct) {
-      const fields = (giftapiItem.fields as Record<string, any>) ?? {};
+    // GiftAPI-позиции заказа в GiftAPI (там спишется наш баланс и запустится доставка).
+    // ПРИМЕЧАНИЕ: если заказ смешанный (часть Position, часть GiftAPI),
+    // сюда отправляются только GiftAPI-позиции; остальное уйдёт в DonateHub/manual ниже.
+    if (isGiftapi) {
+      for (const item of giftapiItems) {
+        if (!item.giftapiProduct) continue;
 
-      this.giftapiOrderService
-        .createOrder(order.id, giftapiItem.giftapiProduct.giftapiSkuId, fields)
-        .catch((err) =>
-          this.logger.error('giftapiOrderService.createOrder упал:', err),
-        );
+        const fields = (item.fields as Record<string, any>) ?? {};
+
+        this.giftapiOrderService
+          .createOrder(order.id, item.giftapiProduct.giftapiSkuId, fields)
+          .catch((err) =>
+            this.logger.error('giftapiOrderService.createOrder упал:', err),
+          );
+      }
+    }
+
+    const hasNonGiftapiItems = existing.items.some((i) => !i.giftapiProductId);
+
+    if (!hasNonGiftapiItems) {
       return;
     }
 

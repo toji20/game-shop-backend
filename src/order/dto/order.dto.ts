@@ -8,6 +8,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { PaymentMethod } from './payment-status.dto';
@@ -50,11 +51,21 @@ export class OrderItemDto {
   @IsNumber({}, { message: 'Цена должна быть числом' })
   price!: number;
 
-  @IsNumber({}, { message: 'Айди игры должен быть числом' })
-  gameId!: number;
+  // ── legacy Position (обязателен, если это НЕ товар GiftAPI) ──
 
+  @ValidateIf((o: OrderItemDto) => !o.giftapiProductId)
+  @IsNumber({}, { message: 'Айди игры должен быть числом' })
+  gameId?: number;
+
+  @ValidateIf((o: OrderItemDto) => !o.giftapiProductId)
   @IsNumber({}, { message: 'Айди позиции должен быть числом' })
-  positionId!: number;
+  positionId?: number;
+
+  // ── GiftAPI (обязателен, если это НЕ Position-товар) ──
+
+  @ValidateIf((o: OrderItemDto) => !o.positionId)
+  @IsString({ message: 'Айди товара GiftAPI должен быть строкой' })
+  giftapiProductId?: string;
 
   @IsOptional()
   @IsObject()

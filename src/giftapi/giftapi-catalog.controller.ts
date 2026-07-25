@@ -1,5 +1,8 @@
 import { Controller, Get, Post, Param, HttpCode, Logger } from '@nestjs/common';
 import { GiftapiSyncService } from './giftapi-sync.service';
+import { Auth } from 'src/auth/decorators/authorization.decorator';
+import { CheckRole } from 'src/auth/decorators/check-role.decorator';
+import { Role } from '@prisma/client';
 
 @Controller('giftapi')
 export class GiftapiCatalogController {
@@ -11,6 +14,8 @@ export class GiftapiCatalogController {
    * Синхронизировать каталог из GiftAPI
    * POST /giftapi/sync
    */
+  @Auth()
+  @CheckRole(Role.ADMIN, Role.MANAGER)
   @Post('sync')
   @HttpCode(200)
   async syncCatalog() {

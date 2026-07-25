@@ -37,6 +37,11 @@ export class ManualOrderService {
           include: {
             game: true,
             position: true,
+            giftapiProduct: {
+              include: {
+                game: true,
+              },
+            },
           },
         },
         user: {
@@ -59,6 +64,11 @@ export class ManualOrderService {
           include: {
             game: true,
             position: true,
+            giftapiProduct: {
+              include: {
+                game: true,
+              },
+            },
           },
         },
         user: {

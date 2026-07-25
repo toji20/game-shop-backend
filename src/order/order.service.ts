@@ -474,10 +474,26 @@ export class OrderService {
       `Заказ ${orderId} оплачен, type: ${order.type}, isGiftapi: ${isGiftapi}, manualStatus: ${order.manualStatus ?? 'n/a'}`,
     );
 
+    // ── Ручные заказы обрабатываются ПЕРВЫМИ и полностью отдельно от AUTO.
+    // Ручной заказ (MANUAL) — это осознанный выбор "оператор выполняет вручную",
+    // даже если в нём лежит GiftAPI-товар. Поэтому:
+    //  - в GiftAPI НИЧЕГО не отправляем (иначе задвоится: и GiftAPI спишет
+    //    наш баланс, и оператор потом выполнит то же самое руками);
+    //  - в DonateHub тоже не отправляем;
+    //  - оператора уведомляем ВСЕГДА, даже если в заказе только GiftAPI-позиции
+    //    (раньше здесь был ранний return до notifyNewManualOrder — из-за этого
+    //    заказ не долетал до панели оператора по сокету).
+    if (isManual) {
+      this.gateway.notifyNewManualOrder(order);
+      return;
+    }
+
+    // ── Дальше — только автоматические (AUTO) заказы.
+
     // Деньги реально получены через YooKassa — теперь можно отправлять
     // GiftAPI-позиции заказа в GiftAPI (там спишется наш баланс и запустится доставка).
     // ПРИМЕЧАНИЕ: если заказ смешанный (часть Position, часть GiftAPI),
-    // сюда отправляются только GiftAPI-позиции; остальное уйдёт в DonateHub/manual ниже.
+    // сюда отправляются только GiftAPI-позиции; остальное уйдёт в DonateHub ниже.
     if (isGiftapi) {
       for (const item of giftapiItems) {
         if (!item.giftapiProduct) continue;
@@ -495,11 +511,6 @@ export class OrderService {
     const hasNonGiftapiItems = existing.items.some((i) => !i.giftapiProductId);
 
     if (!hasNonGiftapiItems) {
-      return;
-    }
-
-    if (isManual) {
-      this.gateway.notifyNewManualOrder(order);
       return;
     }
 

@@ -31,6 +31,12 @@ export class OrderApiService {
               include: { game: true },
             },
             game: true,
+            // Без этого include item.giftapiProduct всегда undefined,
+            // и страница статуса заказа для GiftAPI-товаров рендерит null
+            // (там game берётся из item.giftapiProduct.game).
+            giftapiProduct: {
+              include: { game: true },
+            },
           },
         },
         user: true,
@@ -56,8 +62,13 @@ export class OrderApiService {
         include: {
           items: {
             include: {
-              position: true,
+              position: {
+                include: { game: true },
+              },
               game: true,
+              giftapiProduct: {
+                include: { game: true },
+              },
             },
           },
           user: true,
@@ -105,6 +116,7 @@ export class OrderApiService {
       include: {
         game: true,
         position: true,
+        giftapiProduct: true,
       },
     });
   }

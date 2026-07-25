@@ -33,6 +33,8 @@ export class GiftapiProductController {
     return this.giftapiProductService.getById(id);
   }
 
+  @Auth()
+  @CheckRole(Role.ADMIN, Role.MANAGER)
   @UsePipes(new ValidationPipe())
   @Post()
   @HttpCode(200)
@@ -40,6 +42,8 @@ export class GiftapiProductController {
     return this.giftapiProductService.create(dto);
   }
 
+  @Auth()
+  @CheckRole(Role.ADMIN, Role.MANAGER)
   @UsePipes(new ValidationPipe())
   @Put(':id')
   @HttpCode(200)
@@ -47,6 +51,8 @@ export class GiftapiProductController {
     return this.giftapiProductService.update(id, dto);
   }
 
+  @Auth()
+  @CheckRole(Role.ADMIN, Role.MANAGER)
   @Delete(':id')
   @HttpCode(200)
   async delete(@Param('id') id: string) {

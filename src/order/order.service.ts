@@ -184,7 +184,7 @@ export class OrderService {
       // используем её в handleWebhook, чтобы отличать этот заказ от пополнений
       // Steam, не завися от других полей нотификации Т-Банка
       DATA: { description: `Оплата заказа #${order.id}` },
-      NotificationURL: `${process.env.API_URL}/orders/status`,
+      NotificationURL: `${process.env.API_URL}/api/orders/status`,
       SuccessURL: `${process.env.CLIENT_URL}/order/${order.id}`,
       FailURL: `${process.env.CLIENT_URL}/order/${order.id}`,
     });
@@ -318,7 +318,7 @@ export class OrderService {
       Description: `Оплата заказа #${order.id}`,
       PayType: 'O',
       DATA: { description: `Оплата заказа #${order.id}` },
-      NotificationURL: `${process.env.API_URL}/orders/status`,
+      NotificationURL: `${process.env.API_URL}/api/orders/status`,
       SuccessURL: `${process.env.CLIENT_URL}/order/${order.id}`,
       FailURL: `${process.env.CLIENT_URL}/order/${order.id}`,
     });

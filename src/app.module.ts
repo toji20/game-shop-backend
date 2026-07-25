@@ -23,6 +23,8 @@ import { AdBannerModule } from './ad-banner/ad-banner.module';
 import { SideBannerModule } from './sideBanner/side-banner.module';
 import { PositionCategoryModule } from './position-category/position-category.module';
 import { AvatarModule } from './avatar/avatar.module';
+import { GiftapiModule } from './giftapi/giftapi.module';
+import { GiftapiProductModule } from './giftapi-product/giftapi-product.module';
 
 @Module({
   imports: [
@@ -52,6 +54,8 @@ import { AvatarModule } from './avatar/avatar.module';
     SideBannerModule,
     PositionCategoryModule,
     AvatarModule,
+    GiftapiModule,
+    GiftapiProductModule,
   ],
 })
 export class AppModule {}

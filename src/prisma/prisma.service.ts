@@ -19,6 +19,20 @@ const createPrismaClient = () =>
           },
         },
       },
+      giftApiProduct: {
+        finalPrice: {
+          needs: {
+            price: true,
+            discount: true,
+          },
+          compute(p) {
+            const price = Number(p.price ?? 0);
+            const disc = Number(p.discount ?? 0);
+
+            return disc > 0 ? +(price * (1 - disc / 100)).toFixed(2) : price;
+          },
+        },
+      },
     },
   });
 
@@ -90,7 +104,8 @@ export class PrismaService implements OnModuleInit {
   get avatar() {
     return this.client.avatar;
   }
-  get giftApiWebhookEvent() {
-    return this.client.giftApiWebhookEvent;
+
+  get giftApiProduct() {
+    return this.client.giftApiProduct;
   }
 }

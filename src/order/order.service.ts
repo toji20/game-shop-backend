@@ -1,20 +1,34 @@
 /* eslint-disable @typescript-eslint/no-unnecessary-type-assertion */
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from 'src/prisma/prisma.service';
 import {
   ICapturePayment,
   IPaymentMethodData,
   YooCheckout,
 } from '@a2seven/yoo-checkout';
-import { OrderDto, OrderItemDto } from './dto/order.dto';
+import {
+  CreateGiftApiPaymentDto,
+  OrderDto,
+  OrderItemDto,
+} from './dto/order.dto';
 import { ConfigService } from '@nestjs/config';
-import { PaymentMethod, PaymentStatusDto } from './dto/payment-status.dto';
+import {
+  PaymentMethod,
+  PaymentStatusDto,
+} from 'src/order/dto/payment-status.dto';
 import { EnumOrderStatus, ManualStatus, OrderType } from '@prisma/client';
 import { DonatehubGameService } from 'src/donate-hub-game/donate-hub-game.service';
 import { SteamOrderService } from 'src/steam-order/steam-order.service';
 import { OrderGateway } from './order.gateway';
 import { PromoService } from 'src/promo/promo.service';
 import { PromoTarget } from 'src/promo/dto/promo.dto';
+// ВАЖНО: поправь путь импорта под реальное расположение файла в твоём проекте
+import { GiftapiOrderService } from 'src/giftapi/giftapi-order.service';
 
 @Injectable()
 export class OrderService {
@@ -28,6 +42,7 @@ export class OrderService {
     private readonly steamOrderService: SteamOrderService,
     private readonly gateway: OrderGateway,
     private readonly promoService: PromoService,
+    private readonly giftapiOrderService: GiftapiOrderService,
   ) {
     const shopId = this.configService.get<string>('YOOKASSA_SHOP_ID');
     const secretKey = this.configService.get<string>('YOOKASSA_SECRET_KEY');
@@ -39,6 +54,9 @@ export class OrderService {
     this.checkout = new YooCheckout({ shopId, secretKey });
   }
 
+  /**
+   * Создать заказ с платежом через YooKassa (игры / DonateHub)
+   */
   async createPayment(dto: OrderDto, userId: string | null) {
     let total = dto.items.reduce(
       (acc, item) => acc + item.price * item.quantity,
@@ -141,6 +159,149 @@ export class OrderService {
     return { order, payment };
   }
 
+  /**
+   * Создать заказ товара из каталога GiftAPI с оплатой через YooKassa.
+   *
+   * Флоу:
+   * 1. Пользователь открывает каталог (GiftApiProduct из своей БД).
+   * 2. Цена берётся ИЗ СВОЕЙ БД (GiftApiProduct.price), а не от клиента —
+   *    иначе можно было бы подделать сумму на фронте.
+   * 3. Создаётся локальный заказ с реальной стоимостью (total != 0).
+   * 4. Возвращается платёж YooKassa, пользователь его оплачивает.
+   * 5. Только ПОСЛЕ вебхука payment.succeeded (см. handleGameOrderPayment)
+   *    заказ реально уходит в GiftAPI — деньги там списываются с баланса,
+   *    только когда деньги реально получены нами через YooKassa.
+   */
+  async createGiftapiPayment(
+    dto: CreateGiftApiPaymentDto,
+    userId: string | null,
+  ) {
+    const product = await this.prisma.giftApiProduct.findUnique({
+      where: { id: dto.giftapiProductId },
+    });
+
+    if (!product) {
+      throw new NotFoundException(
+        `Товар GiftAPI ${dto.giftapiProductId} не найден в БД`,
+      );
+    }
+
+    if (!product.isActive) {
+      throw new BadRequestException('Товар недоступен для заказа');
+    }
+
+    if (product.price === null || product.price === undefined) {
+      throw new BadRequestException(
+        `У товара ${product.id} не задана цена (price is null)`,
+      );
+    }
+
+    const quantity = dto.quantity ?? 1;
+
+    if (quantity > product.maxPerOrder) {
+      throw new BadRequestException(
+        `Максимум ${product.maxPerOrder} шт. за один заказ`,
+      );
+    }
+
+    if (product.stock > 0 && quantity > product.stock) {
+      throw new BadRequestException('Недостаточно товара на складе');
+    }
+
+    // ВНИМАНИЕ: GiftApiProduct.currency по умолчанию "USD", а платёж
+    // в YooKassa создаётся в RUB. Если цены в каталоге хранятся не в рублях,
+    // здесь нужна конвертация по актуальному курсу перед выставлением счёта.
+    // Пока предполагается, что product.price уже в рублях.
+    if (product.currency !== 'RUB') {
+      this.logger.warn(
+        `GiftApiProduct ${product.id} имеет валюту ${product.currency}, ` +
+          `а оплата всегда идёт в RUB — проверь, что цена уже сконвертирована`,
+      );
+    }
+
+    let total = Number(product.price) * quantity;
+    let promoCodeId: string | null = null;
+
+    if (dto.promoCode && userId) {
+      const promo = await this.promoService.apply(
+        {
+          code: dto.promoCode,
+          target: PromoTarget.GAME,
+        },
+        userId,
+      );
+
+      total = total * (1 - promo.discount / 100);
+      promoCodeId = promo.id;
+    }
+
+    const method = dto.paymentMethod ?? PaymentMethod.BANK_CARD;
+    const commissionRate =
+      method === PaymentMethod.SBP
+        ? 1.01
+        : method === PaymentMethod.BANK_CARD
+          ? 1.02
+          : 1;
+
+    total = +(total * commissionRate).toFixed(2);
+
+    this.logger.log(
+      `GiftAPI заказ: sku ${product.giftapiSkuId}, комиссия x${commissionRate} (${method}), итого: ${total}`,
+    );
+
+    const order = await this.prisma.order.create({
+      data: {
+        status: EnumOrderStatus.PENDING,
+        type: OrderType.AUTO,
+        total,
+        userId: userId ?? undefined,
+        items: {
+          create: {
+            quantity,
+            price: product.price,
+            fields: dto.fields ?? {},
+
+            giftapiProduct: {
+              connect: {
+                id: product.id,
+              },
+            },
+          },
+        },
+      },
+      include: { items: true },
+    });
+
+    this.logger.log(
+      `GiftAPI заказ создан локально: ${order.id}, SKU: ${product.giftapiSkuId}, total: ${total}`,
+    );
+
+    const payment = await this.checkout.createPayment({
+      amount: { value: total.toFixed(2), currency: 'RUB' },
+      capture: true,
+      payment_method_data: this.buildPaymentMethodData(method),
+      confirmation: {
+        type: 'redirect',
+        return_url: `${process.env.CLIENT_URL}/order/${order.id}`,
+      },
+      // Тот же формат описания, что и у обычных заказов —
+      // handleWebhook его уже умеет парсить и находить заказ по id
+      description: `Оплата заказа #${order.id}`,
+    });
+
+    if (promoCodeId && userId) {
+      await this.prisma.promoCodeUse.create({
+        data: {
+          promoCodeId,
+          userId,
+          orderId: order.id,
+        },
+      });
+    }
+
+    return { order, payment };
+  }
+
   async updateStatus(dto: PaymentStatusDto) {
     this.logger.log(`Получен вебхук: ${dto.event}`);
 
@@ -193,6 +354,16 @@ export class OrderService {
         promoCodes: {
           select: { promoCodeId: true },
         },
+        items: {
+          select: {
+            id: true,
+            fields: true,
+            giftapiProductId: true,
+            giftapiProduct: {
+              select: { giftapiSkuId: true },
+            },
+          },
+        },
       },
     });
 
@@ -202,6 +373,8 @@ export class OrderService {
     }
 
     const isManual = existing.type === OrderType.MANUAL;
+    const giftapiItem = existing.items.find((i) => i.giftapiProductId);
+    const isGiftapi = !!giftapiItem;
 
     const order = await this.prisma.order.update({
       where: { id: orderId },
@@ -221,8 +394,21 @@ export class OrderService {
     }
 
     this.logger.log(
-      `Заказ ${orderId} оплачен, type: ${order.type}, manualStatus: ${order.manualStatus ?? 'n/a'}`,
+      `Заказ ${orderId} оплачен, type: ${order.type}, isGiftapi: ${isGiftapi}, manualStatus: ${order.manualStatus ?? 'n/a'}`,
     );
+
+    // Деньги реально получены через YooKassa — теперь можно отправлять
+    // заказ в GiftAPI (там спишется наш баланс и запустится доставка)
+    if (isGiftapi && giftapiItem?.giftapiProduct) {
+      const fields = (giftapiItem.fields as Record<string, any>) ?? {};
+
+      this.giftapiOrderService
+        .createOrder(order.id, giftapiItem.giftapiProduct.giftapiSkuId, fields)
+        .catch((err) =>
+          this.logger.error('giftapiOrderService.createOrder упал:', err),
+        );
+      return;
+    }
 
     if (isManual) {
       this.gateway.notifyNewManualOrder(order);

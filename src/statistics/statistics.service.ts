@@ -65,59 +65,73 @@ export class StatisticsService {
       this.getLastUsers(),
     ]);
 
-    return { monthlySales, topGames, lastUsers };
+    return {
+      monthlySales,
+      topGames,
+      lastUsers,
+    };
   }
 
   // ---------------------------------------------------------------------------
   // Приватные методы
   // ---------------------------------------------------------------------------
 
-  // Выручка по игровым заказам
   private async calculateGameRevenue() {
     const result = await this.prisma.order.aggregate({
-      where: { status: EnumOrderStatus.PAID },
-      _sum: { total: true },
+      where: {
+        status: EnumOrderStatus.PAID,
+      },
+      _sum: {
+        total: true,
+      },
     });
+
     return Number(result._sum.total ?? 0);
   }
 
-  // Выручка по Steam заказам
   private async calculateSteamRevenue() {
     const result = await this.prisma.steamOrder.aggregate({
-      where: { status: EnumOrderStatus.PAID },
-      _sum: { total: true },
+      where: {
+        status: EnumOrderStatus.PAID,
+      },
+      _sum: {
+        total: true,
+      },
     });
+
     return Number(result._sum.total ?? 0);
   }
 
-  // Кол-во игровых заказов
   private async countOrders() {
     return this.prisma.order.count({
-      where: { status: EnumOrderStatus.PAID },
+      where: {
+        status: EnumOrderStatus.PAID,
+      },
     });
   }
 
-  // Кол-во Steam заказов
   private async countSteamOrders() {
     return this.prisma.steamOrder.count({
-      where: { status: EnumOrderStatus.PAID },
+      where: {
+        status: EnumOrderStatus.PAID,
+      },
     });
   }
 
-  // Кол-во пользователей
   private async countUsers() {
     return this.prisma.user.count();
   }
 
-  // Средний рейтинг по всем играм
   private async calculateAverageRating() {
     const result = await this.prisma.review.aggregate({
-      _avg: { rating: true },
+      _avg: {
+        rating: true,
+      },
     });
+
     return result._avg.rating ? Math.round(result._avg.rating * 10) / 10 : null;
   }
 
-  // Продажи по дням за последние 30 дней (игры + Steam вместе)
   private async calculateMonthlySales() {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 30);
@@ -130,72 +144,126 @@ export class StatisticsService {
       this.prisma.order.findMany({
         where: {
           status: EnumOrderStatus.PAID,
-          createdAt: { gte: startDate, lte: endDate },
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
         },
-        select: { createdAt: true, total: true },
+        select: {
+          createdAt: true,
+          total: true,
+        },
       }),
+
       this.prisma.steamOrder.findMany({
         where: {
           status: EnumOrderStatus.PAID,
-          createdAt: { gte: startDate, lte: endDate },
+          createdAt: {
+            gte: startDate,
+            lte: endDate,
+          },
         },
-        select: { createdAt: true, total: true },
+        select: {
+          createdAt: true,
+          total: true,
+        },
       }),
     ]);
 
-    const formatDate = (date: Date): string =>
+    const formatDate = (date: Date) =>
       `${date.getDate()} ${monthNames[date.getMonth()]}`;
 
     const salesByDate = new Map<string, number>();
 
     [...gameOrders, ...steamOrders].forEach((order) => {
       const key = formatDate(new Date(order.createdAt));
+
       salesByDate.set(key, (salesByDate.get(key) ?? 0) + Number(order.total));
     });
 
-    return Array.from(salesByDate, ([date, value]) => ({ date, value })).sort(
-      (a, b) => {
-        const parse = (s: string) => {
-          const [day, month] = s.split(' ');
-          return monthNames.indexOf(month) * 31 + parseInt(day);
+    return Array.from(salesByDate.entries())
+      .map(([date, value]) => ({
+        date,
+        value,
+      }))
+      .sort((a, b) => {
+        const parse = (value: string) => {
+          const [day, month] = value.split(' ');
+          return monthNames.indexOf(month) * 31 + Number(day);
         };
+
         return parse(a.date) - parse(b.date);
-      },
-    );
+      });
   }
 
-  // Топ 5 игр по количеству продаж
+  // ---------------------------------------------------------------------------
+  // ТОП игр (исправлено)
+  // ---------------------------------------------------------------------------
+
   private async getTopGames() {
     const result = await this.prisma.orderItem.groupBy({
       by: ['gameId'],
-      where: { order: { status: EnumOrderStatus.PAID } },
-      _count: { id: true },
-      _sum: { price: true },
-      orderBy: { _count: { id: 'desc' } },
+      where: {
+        order: {
+          status: EnumOrderStatus.PAID,
+        },
+        gameId: {
+          not: null,
+        },
+      },
+      _count: {
+        id: true,
+      },
+      _sum: {
+        price: true,
+      },
+      orderBy: {
+        _count: {
+          id: 'desc',
+        },
+      },
       take: 5,
     });
 
+    const gameIds: number[] = result
+      .map((item) => item.gameId)
+      .filter((id): id is number => id !== null);
+
     const games = await this.prisma.game.findMany({
-      where: { id: { in: result.map((r) => r.gameId) } },
-      select: { id: true, name: true, icon: true },
+      where: {
+        id: {
+          in: gameIds,
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        icon: true,
+      },
     });
 
-    return result.map((r) => {
-      const game = games.find((g) => g.id === r.gameId);
+    return result.map((item) => {
+      const game = games.find((g) => g.id === item.gameId);
+
       return {
-        gameId: r.gameId,
+        gameId: item.gameId,
         name: game?.name ?? 'Неизвестно',
         image: game?.icon ?? null,
-        ordersCount: r._count.id,
-        revenue: Number(r._sum.price ?? 0),
+        ordersCount: item._count.id,
+        revenue: Number(item._sum.price ?? 0),
       };
     });
   }
 
-  // Последние 5 пользователей с суммой их трат
+  // ---------------------------------------------------------------------------
+  // Последние пользователи
+  // ---------------------------------------------------------------------------
+
   private async getLastUsers() {
     const users = await this.prisma.user.findMany({
-      orderBy: { createdAt: 'desc' },
+      orderBy: {
+        createdAt: 'desc',
+      },
       take: 5,
       select: {
         id: true,
@@ -203,20 +271,28 @@ export class StatisticsService {
         email: true,
         picture: true,
         orders: {
-          where: { status: EnumOrderStatus.PAID },
-          select: { total: true },
+          where: {
+            status: EnumOrderStatus.PAID,
+          },
+          select: {
+            total: true,
+          },
         },
         steamOrders: {
-          where: { status: EnumOrderStatus.PAID },
-          select: { total: true },
+          where: {
+            status: EnumOrderStatus.PAID,
+          },
+          select: {
+            total: true,
+          },
         },
       },
     });
 
     return users.map((user) => {
       const totalSpent =
-        user.orders.reduce((acc, o) => acc + Number(o.total), 0) +
-        user.steamOrders.reduce((acc, o) => acc + Number(o.total), 0);
+        user.orders.reduce((sum, order) => sum + Number(order.total), 0) +
+        user.steamOrders.reduce((sum, order) => sum + Number(order.total), 0);
 
       return {
         id: user.id,

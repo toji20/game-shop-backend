@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   IsArray,
   IsEnum,
+  IsInt,
   IsNumber,
   IsObject,
   IsOptional,
@@ -58,4 +59,24 @@ export class OrderItemDto {
   @IsOptional()
   @IsObject()
   fields?: Record<string, any>;
+}
+export class CreateGiftApiPaymentDto {
+  @IsString()
+  giftapiProductId!: string;
+
+  @IsOptional()
+  @IsInt()
+  quantity?: number;
+
+  @IsOptional()
+  @IsObject()
+  fields?: Record<string, any>;
+
+  @IsOptional()
+  @IsString()
+  promoCode?: string;
+
+  @IsOptional()
+  @IsEnum(PaymentMethod)
+  paymentMethod?: PaymentMethod;
 }

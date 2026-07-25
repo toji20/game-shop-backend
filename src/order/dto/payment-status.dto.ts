@@ -1,32 +1,32 @@
 class AmountPayment {
-  value: string;
-  currency: string;
+  value!: string;
+  currency!: string;
 }
 
 class ObjectPayment {
-  id: string;
-  status: string;
-  amount: AmountPayment;
-  payment_method: {
+  id!: string;
+  status!: string;
+  amount!: AmountPayment;
+  payment_method!: {
     type: string;
     id: string;
     saved: boolean;
     title: string;
     card: object;
   };
-  created_at: string;
-  updated_at: string;
-  description: string;
+  created_at!: string;
+  updated_at!: string;
+  description!: string;
 }
 
 export class PaymentStatusDto {
-  event:
+  event!:
     | 'payment.succeeded'
     | 'payment.waiting_for_capture'
     | 'payment.canceled'
     | 'refund.succeeded';
-  type: string;
-  object: ObjectPayment;
+  type!: string;
+  object!: ObjectPayment;
 }
 export enum PaymentMethod {
   BANK_CARD = 'bank_card',

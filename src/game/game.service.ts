@@ -90,9 +90,7 @@ export class GameService {
       where: { id: Number(id) },
       include: {
         category: true,
-        reviews: {
-          include: { user: true },
-        },
+        reviews: true,
         positions: true,
         fields: true,
         servers: true,
@@ -120,12 +118,7 @@ export class GameService {
       },
       include: {
         category: true,
-        reviews: {
-          include: { user: true },
-          orderBy: {
-            createdAt: 'desc',
-          },
-        },
+        reviews: true,
         positions: {
           where: {
             isActive: true,
@@ -134,6 +127,18 @@ export class GameService {
         fields: true,
         servers: true,
         positionCategories: true,
+        giftApiProducts: {
+          where: {
+            deletedAt: null,
+            isActive: true,
+          },
+          include: {
+            positionCategory: true,
+          },
+          orderBy: {
+            createdAt: 'asc',
+          },
+        },
       },
     });
 

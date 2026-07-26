@@ -13,7 +13,7 @@ import {
 import type { Request, Response } from 'express';
 import { OrderService } from './order.service';
 import { CreateGiftApiPaymentDto, OrderDto } from './dto/order.dto';
-// import { PaymentStatusDto } from './dto/payment-status.dto';
+import { PaymentStatusDto } from './dto/payment-status.dto';
 import { OptionalJwtGuard } from 'src/auth/guards/optional-jwt.guard';
 
 @Controller('orders')
@@ -36,23 +36,15 @@ export class OrderController {
    * попадёт что угодно, а verifyNotificationToken строго завязан на состав
    * полей.
    *
-   * ВАЖНО: путь должен буквально совпадать с NotificationURL, который
-   * передаётся в TBankService.init(...) внутри order.service.ts
-   * (сейчас там `${API_URL}/order/tbank/webhook` — либо поменяй его на
-   * `${API_URL}/orders/status`, либо перенеси этот метод на путь
-   * 'tbank/webhook'). Иначе нотификации будут падать в никуда, а заказы
-   * навсегда останутся в статусе PENDING.
-   *
    * Т-Банк засчитывает нотификацию успешной ТОЛЬКО если получил HTTP 200
    * с телом ровно "OK" (заглавными буквами, без кавычек, без JSON). Если
    * этого не сделать — он будет ретраить нотификацию раз в час сутки,
    * затем раз в сутки ещё месяц.
    */
   @HttpCode(200)
+  @UsePipes(new ValidationPipe())
   @Post('status')
-  async updateStatus(@Body() dto: any, @Res() res: Response) {
-    // ВРЕМЕННО для отладки формата нотификации Т-Банка — убрать после диагностики!
-    this.logger.warn('RAW T-Bank notification: ' + JSON.stringify(dto));
+  async updateStatus(@Body() dto: PaymentStatusDto, @Res() res: Response) {
     try {
       await this.orderService.updateStatus(dto);
     } catch (err) {

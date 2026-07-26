@@ -32,6 +32,9 @@ export type TBankPaymentStatus =
  * менять импорты в контроллере вебхука — но содержимое теперь плоское,
  * без вложенного object, как было у ЮKassa.
  *
+ * ВАЖНО: PaymentId и CardId — ЧИСЛА (проверено по реальной нотификации от
+ * Т-Банка: "PaymentId":8928986069, "CardId":692989306 — без кавычек).
+ *
  * ВАЖНО: перед обработкой обязательно проверяй Token через
  * TBankService.verifyNotificationToken(dto) — см. order.service.ts.
  */
@@ -61,8 +64,8 @@ export class PaymentStatusDto {
   ])
   Status!: TBankPaymentStatus;
 
-  @IsString()
-  PaymentId!: string;
+  @IsNumber()
+  PaymentId!: number;
 
   @IsString()
   ErrorCode!: string;
@@ -71,8 +74,8 @@ export class PaymentStatusDto {
   Amount!: number; // в копейках
 
   @IsOptional()
-  @IsString()
-  CardId?: string;
+  @IsNumber()
+  CardId?: number;
 
   @IsOptional()
   @IsString()

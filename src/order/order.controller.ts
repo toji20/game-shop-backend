@@ -13,7 +13,7 @@ import {
 import type { Request, Response } from 'express';
 import { OrderService } from './order.service';
 import { CreateGiftApiPaymentDto, OrderDto } from './dto/order.dto';
-import { PaymentStatusDto } from './dto/payment-status.dto';
+// import { PaymentStatusDto } from './dto/payment-status.dto';
 import { OptionalJwtGuard } from 'src/auth/guards/optional-jwt.guard';
 
 @Controller('orders')
@@ -49,17 +49,13 @@ export class OrderController {
    * затем раз в сутки ещё месяц.
    */
   @HttpCode(200)
-  @UsePipes(new ValidationPipe())
   @Post('status')
-  async updateStatus(@Body() dto: PaymentStatusDto, @Res() res: Response) {
+  async updateStatus(@Body() dto: any, @Res() res: Response) {
+    // ВРЕМЕННО для отладки формата нотификации Т-Банка — убрать после диагностики!
+    this.logger.warn('RAW T-Bank notification: ' + JSON.stringify(dto));
     try {
       await this.orderService.updateStatus(dto);
     } catch (err) {
-      // не даём ошибке обработки превратиться в 500 с телом-не-"OK" —
-      // Т-Банк не разбирается в кодах ошибок, ему важен только текст ответа.
-      // Логируем и всё равно отвечаем OK, чтобы не устраивать лавину ретраев
-      // по ошибке, которая всё равно не исчезнет сама собой; настоящая
-      // причина падения остаётся в логах для ручного разбора.
       this.logger.error('updateStatus упал:', err);
     }
     res.status(200).send('OK');

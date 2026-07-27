@@ -18,7 +18,7 @@ export class GiftapiOrderService {
    * @param orderId ID заказа из нашей системы
    * @param skuId SKU ID товара из GiftAPI
    * @param fields Поля заказа (зависят от типа товара)
-   * @param externalId Уникальный ID заказа (обычно ID из нашей ��Д)
+   * @param externalId Уникальный ID заказа (обычно ID из нашей БД)
    */
   async createOrder(
     orderId: string,
@@ -157,11 +157,20 @@ export class GiftapiOrderService {
       }
 
       // Обновить статус в нашей БД
+      // ВАЖНО: ключи — реальные значения статуса GiftAPI (см. документацию
+      // Partner S2S API: created, processing, completed, cancelled — именно
+      // с двойной "l", failed, partially_completed). Значения — валидные
+      // элементы Prisma-enum EnumOrderStatus (PENDING, PAID, IN_PROCESS,
+      // COMPLETED, CANCELED). Раньше здесь была опечатка: 'processing' был
+      // смаплен на несуществующее в enum значение 'PROCESSING' (нужно
+      // 'IN_PROCESS'), а ключа 'cancelled' не было вовсе — отменённые в
+      // GiftAPI заказы проваливались в дефолт 'PENDING' вместо 'CANCELED'.
       const statusMap = {
         completed: 'COMPLETED',
         failed: 'CANCELED',
+        cancelled: 'CANCELED',
         partially_completed: 'COMPLETED', // или отдельный статус
-        processing: 'PROCESSING',
+        processing: 'IN_PROCESS',
         created: 'PENDING',
       };
 
@@ -185,10 +194,15 @@ export class GiftapiOrderService {
         `Updated order ${ourOrder.id} with GiftAPI status: ${giftapiOrder.status}`,
       );
 
-      // Если заказ завершился - обновить основной статус
+      // Если заказ завершился (успешно, с ошибкой или отменён) — обновляем
+      // основной статус. Раньше проверялось только 'completed' || 'failed' —
+      // 'cancelled' и 'partially_completed' сюда не попадали и общий статус
+      // заказа так и оставался PAID/IN_PROCESS навсегда.
       if (
         giftapiOrder.status === 'completed' ||
-        giftapiOrder.status === 'failed'
+        giftapiOrder.status === 'failed' ||
+        giftapiOrder.status === 'cancelled' ||
+        giftapiOrder.status === 'partially_completed'
       ) {
         await this.prisma.order.update({
           where: { id: ourOrder.id },

@@ -13,13 +13,13 @@ export type SteamPaymentMethod = 'bank_card' | 'sbp';
 
 export class SteamCheckDto {
   @IsString({ message: 'Укажите корректный Steam логин' })
-  account: string;
+  account!: string;
 
   @Type(() => Number)
   @IsNumber({}, { message: 'Сумма должна быть числом' })
   @Min(1, { message: 'Минимальная сумма пополнения: 1' })
   @Max(100000, { message: 'Максимальная сумма пополнения: 100000' })
-  amount: number;
+  amount!: number;
 
   @IsOptional()
   @IsIn(['RUB', 'KZT', 'USD'])
@@ -28,13 +28,13 @@ export class SteamCheckDto {
 
 export class SteamOrderDto {
   @IsString({ message: 'Укажите корректный Steam логин' })
-  account: string;
+  account!: string;
 
   @Type(() => Number)
   @IsNumber({}, { message: 'Сумма должна быть числом' })
   @Min(1, { message: 'Минимальная сумма пополнения: 1' })
   @Max(100000, { message: 'Максимальная сумма пополнения: 100000' })
-  amountRub: number;
+  amountRub!: number;
 
   @IsOptional()
   @IsIn(['RUB', 'KZT', 'USD'])

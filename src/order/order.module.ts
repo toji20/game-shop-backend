@@ -9,6 +9,7 @@ import { OrderGateway } from './order.gateway';
 import { PromoModule } from 'src/promo/promo.module';
 import { GiftapiModule } from 'src/giftapi/giftapi.module';
 import { TBankService } from './tbank.service';
+import { ExchangeRateService } from 'src/common/exchange-rate.service';
 
 @Module({
   imports: [DonateHubGameModule, SteamOrderModule, PromoModule, GiftapiModule],
@@ -19,6 +20,7 @@ import { TBankService } from './tbank.service';
     DonatehubGameService,
     OrderGateway,
     TBankService,
+    ExchangeRateService,
   ],
   exports: [OrderGateway],
 })

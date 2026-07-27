@@ -6,6 +6,7 @@ import {
   BadRequestException,
   BadGatewayException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { TBankService } from './tbank.service';
 import {
@@ -19,12 +20,13 @@ import {
 } from 'src/order/dto/payment-status.dto';
 import { EnumOrderStatus, ManualStatus, OrderType } from '@prisma/client';
 import { DonatehubGameService } from 'src/donate-hub-game/donate-hub-game.service';
-import { SteamOrderService } from 'src/steam-order/steam-order.service';
 import { OrderGateway } from './order.gateway';
 import { PromoService } from 'src/promo/promo.service';
 import { PromoTarget } from 'src/promo/dto/promo.dto';
 // ВАЖНО: поправь путь импорта под реальное расположение файла в твоём проекте
 import { GiftapiOrderService } from 'src/giftapi/giftapi-order.service';
+import { ExchangeRateService } from 'src/common/exchange-rate.service';
+// ВАЖНО: поправь путь под реальное расположение — см. exchange-rate.service.ts
 
 @Injectable()
 export class OrderService {
@@ -32,13 +34,73 @@ export class OrderService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly configService: ConfigService,
     private readonly tbankService: TBankService,
     private readonly donatehubGameService: DonatehubGameService,
-    private readonly steamOrderService: SteamOrderService,
     private readonly gateway: OrderGateway,
     private readonly promoService: PromoService,
     private readonly giftapiOrderService: GiftapiOrderService,
+    private readonly exchangeRateService: ExchangeRateService,
   ) {}
+
+  /**
+   * Для GiftAPI-товаров с denominationType='custom' (например, пополнение
+   * Steam-кошелька на произвольную сумму) в каталоге НЕТ фиксированной цены
+   * (GiftApiProduct.price = null намеренно) — сумма вводится пользователем
+   * через одно из полей attributes.fields (обычно с code 'amount').
+   * Цена в рублях считается на лету: сумма × курс валюты товара → RUB × наша
+   * комиссия. Раньше эта же логика (конвертация + наценка) жила в
+   * SteamOrderService.checkAccount/createPayment для DonateHub-пайплайна —
+   * теперь единая точка для любого GiftAPI-товара с произвольной суммой.
+   */
+  private async resolveCustomAmountPrice(
+    product: { id: string; currency: string; attributes: unknown },
+    fields: Record<string, any> | undefined,
+  ): Promise<number> {
+    const fieldDefs: any[] = (product.attributes as any)?.fields ?? [];
+    const amountFieldDef =
+      fieldDefs.find((f) => f.code === 'amount') ??
+      fieldDefs.find((f) => f.type === 'decimal');
+
+    if (!amountFieldDef) {
+      throw new BadRequestException(
+        `У товара ${product.id} не настроено поле суммы (custom denomination)`,
+      );
+    }
+
+    const rawAmount = fields?.[amountFieldDef.code];
+    const amount = Number(rawAmount);
+
+    if (rawAmount === undefined || rawAmount === null || Number.isNaN(amount)) {
+      throw new BadRequestException(
+        `Укажите сумму пополнения в поле "${amountFieldDef.code}"`,
+      );
+    }
+
+    const { min, max } = amountFieldDef.validation ?? {};
+    if (min !== undefined && amount < min) {
+      throw new BadRequestException(`Минимальная сумма пополнения: ${min}`);
+    }
+    if (max !== undefined && amount > max) {
+      throw new BadRequestException(`Максимальная сумма пополнения: ${max}`);
+    }
+
+    const rates = await this.exchangeRateService.getRates();
+    const commission =
+      this.configService.get<number>('GIFTAPI_CUSTOM_TOPUP_COMMISSION') ?? 1.04;
+
+    let priceInRub: number;
+    if (product.currency === 'USD') {
+      priceInRub = amount * rates.usdToRub * commission;
+    } else if (product.currency === 'KZT') {
+      priceInRub = amount * rates.kztToRub * commission;
+    } else {
+      // валюта товара уже рубли (или не задана иначе) — считаем как есть
+      priceInRub = amount * commission;
+    }
+
+    return +priceInRub.toFixed(2);
+  }
 
   /**
    * Создать заказ с платежом через Т-Банк (эквайринг).
@@ -75,11 +137,6 @@ export class OrderService {
           `Товар ${product.id} недоступен для заказа`,
         );
       }
-      if (product.price === null || product.price === undefined) {
-        throw new BadRequestException(
-          `У товара ${product.id} не задана цена (price is null)`,
-        );
-      }
       if (item.quantity > product.maxPerOrder) {
         throw new BadRequestException(
           `Максимум ${product.maxPerOrder} шт. товара ${product.id} за один заказ`,
@@ -90,8 +147,20 @@ export class OrderService {
           `Недостаточно товара ${product.id} на складе`,
         );
       }
-      // цена с фронта игнорируется, подставляем доверенную из БД
-      item.price = Number(product.price);
+
+      if (product.denominationType === 'custom') {
+        // Товар без фиксированной цены (например, пополнение Steam на
+        // произвольную сумму) — цена считается из введённой суммы
+        item.price = await this.resolveCustomAmountPrice(product, item.fields);
+      } else {
+        if (product.price === null || product.price === undefined) {
+          throw new BadRequestException(
+            `У товара ${product.id} не задана цена (price is null)`,
+          );
+        }
+        // цена с фронта игнорируется, подставляем доверенную из БД
+        item.price = Number(product.price);
+      }
     }
 
     let total = dto.items.reduce(
@@ -238,11 +307,6 @@ export class OrderService {
     if (!product.isActive) {
       throw new BadRequestException('Товар недоступен для заказа');
     }
-    if (product.price === null || product.price === undefined) {
-      throw new BadRequestException(
-        `У товара ${product.id} не задана цена (price is null)`,
-      );
-    }
 
     const quantity = dto.quantity ?? 1;
     if (quantity > product.maxPerOrder) {
@@ -254,18 +318,30 @@ export class OrderService {
       throw new BadRequestException('Недостаточно товара на складе');
     }
 
-    // ВНИМАНИЕ: GiftApiProduct.currency по умолчанию "USD", а платёж
-    // в Т-Банке создаётся в рублях. Если цены в каталоге хранятся не в рублях,
-    // здесь нужна конвертация по актуальному курсу перед выставлением счёта.
-    // Пока предполагается, что product.price уже в рублях.
-    if (product.currency !== 'RUB') {
-      this.logger.warn(
-        `GiftApiProduct ${product.id} имеет валюту ${product.currency}, ` +
-          `а оплата всегда идёт в RUB — проверь, что цена уже сконвертирована`,
-      );
+    let unitPrice: number;
+    if (product.denominationType === 'custom') {
+      // Товар без фиксированной цены (например, пополнение Steam на
+      // произвольную сумму) — цена считается из введённой суммы
+      unitPrice = await this.resolveCustomAmountPrice(product, dto.fields);
+    } else {
+      if (product.price === null || product.price === undefined) {
+        throw new BadRequestException(
+          `У товара ${product.id} не задана цена (price is null)`,
+        );
+      }
+      // ВНИМАНИЕ: GiftApiProduct.currency по умолчанию "USD", а платёж
+      // в Т-Банке создаётся в рублях. Для товаров с фиксированной ценой
+      // предполагается, что product.price уже хранится в рублях.
+      if (product.currency !== 'RUB') {
+        this.logger.warn(
+          `GiftApiProduct ${product.id} имеет валюту ${product.currency}, ` +
+            `а оплата всегда идёт в RUB — проверь, что цена уже сконвертирована`,
+        );
+      }
+      unitPrice = Number(product.price);
     }
 
-    let total = Number(product.price) * quantity;
+    let total = unitPrice * quantity;
 
     let promoCodeId: string | null = null;
     if (dto.promoCode && userId) {
@@ -298,7 +374,7 @@ export class OrderService {
         items: {
           create: {
             quantity,
-            price: product.price,
+            price: unitPrice,
             fields: dto.fields ?? {},
             giftapiProduct: { connect: { id: product.id } },
           },
@@ -386,21 +462,9 @@ export class OrderService {
       return;
     }
 
-    // description у нас имеет тот же формат, что был при ЮKassa — используем
-    // его, чтобы отличать пополнение Steam от обычных заказов, не трогая
-    // steam-order модуль.
-    // TODO: если steam-order.service.ts тоже вызывает YooCheckout напрямую,
-    // его тоже нужно перевести на TBankService.init(...) и передавать туда
-    // DATA: { description: 'Пополнение Steam #<id>' } — иначе Data.description
-    // в нотификации для Steam-пополнений будет пустым и этот if не сработает.
-    const description =
-      dto.Data?.description ?? `Оплата заказа #${dto.OrderId}`;
-
-    if (description.startsWith('Пополнение Steam #')) {
-      await this.steamOrderService.handleSuccessPayment(description);
-      return;
-    }
-
+    // Steam-пополнение теперь идёт через тот же generic GiftAPI-флоу, что и
+    // любой другой товар (SteamOrderService/DonateHub-пайплайн выведен из
+    // эксплуатации) — отдельная ветка по description больше не нужна.
     await this.handleGameOrderPayment(dto.OrderId);
   }
 

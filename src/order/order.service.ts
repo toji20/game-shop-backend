@@ -23,10 +23,15 @@ import { DonatehubGameService } from 'src/donate-hub-game/donate-hub-game.servic
 import { OrderGateway } from './order.gateway';
 import { PromoService } from 'src/promo/promo.service';
 import { PromoTarget } from 'src/promo/dto/promo.dto';
-// ВАЖНО: поправь путь импорта под реальное расположение файла в твоём проекте
 import { GiftapiOrderService } from 'src/giftapi/giftapi-order.service';
 import { ExchangeRateService } from 'src/common/exchange-rate.service';
-// ВАЖНО: поправь путь под реальное расположение — см. exchange-rate.service.ts
+
+interface CustomAmountResolution {
+  priceRub: number;
+  giftapiFields: Record<string, any>;
+  estimatedGiftapiAmount: number;
+  estimatedGiftapiCurrency: string;
+}
 
 @Injectable()
 export class OrderService {
@@ -43,20 +48,10 @@ export class OrderService {
     private readonly exchangeRateService: ExchangeRateService,
   ) {}
 
-  /**
-   * Для GiftAPI-товаров с denominationType='custom' (например, пополнение
-   * Steam-кошелька на произвольную сумму) в каталоге НЕТ фиксированной цены
-   * (GiftApiProduct.price = null намеренно) — сумма вводится пользователем
-   * через одно из полей attributes.fields (обычно с code 'amount').
-   * Цена в рублях считается на лету: сумма × курс валюты товара → RUB × наша
-   * комиссия. Раньше эта же логика (конвертация + наценка) жила в
-   * SteamOrderService.checkAccount/createPayment для DonateHub-пайплайна —
-   * теперь единая точка для любого GiftAPI-товара с произвольной суммой.
-   */
   private async resolveCustomAmountPrice(
     product: { id: string; currency: string; attributes: unknown },
     fields: Record<string, any> | undefined,
-  ): Promise<number> {
+  ): Promise<CustomAmountResolution> {
     const fieldDefs: any[] = (product.attributes as any)?.fields ?? [];
     const amountFieldDef =
       fieldDefs.find((f) => f.code === 'amount') ??
@@ -69,48 +64,102 @@ export class OrderService {
     }
 
     const rawAmount = fields?.[amountFieldDef.code];
-    const amount = Number(rawAmount);
+    const rubAmount = Number(rawAmount);
 
-    if (rawAmount === undefined || rawAmount === null || Number.isNaN(amount)) {
+    if (
+      rawAmount === undefined ||
+      rawAmount === null ||
+      Number.isNaN(rubAmount)
+    ) {
       throw new BadRequestException(
         `Укажите сумму пополнения в поле "${amountFieldDef.code}"`,
       );
     }
 
+    // ВАЖНО: min/max в validation заданы в рублях (как и весь ввод) —
+    // это соответствует лимитам MIN_AMOUNT/MAX_AMOUNT на фронте.
     const { min, max } = amountFieldDef.validation ?? {};
-    if (min !== undefined && amount < min) {
-      throw new BadRequestException(`Минимальная сумма пополнения: ${min}`);
+    if (min !== undefined && rubAmount < min) {
+      throw new BadRequestException(`Минимальная сумма пополнения: ${min} ₽`);
     }
-    if (max !== undefined && amount > max) {
-      throw new BadRequestException(`Максимальная сумма пополнения: ${max}`);
+    if (max !== undefined && rubAmount > max) {
+      throw new BadRequestException(`Максимальная сумма пополнения: ${max} ₽`);
     }
 
     const rates = await this.exchangeRateService.getRates();
     const commission =
       this.configService.get<number>('GIFTAPI_CUSTOM_TOPUP_COMMISSION') ?? 1.04;
 
-    let priceInRub: number;
+    let rateToRub: number;
     if (product.currency === 'USD') {
-      priceInRub = amount * rates.usdToRub * commission;
+      rateToRub = rates.usdToRub;
     } else if (product.currency === 'KZT') {
-      priceInRub = amount * rates.kztToRub * commission;
+      rateToRub = rates.kztToRub;
     } else {
-      // валюта товара уже рубли (или не задана иначе) — считаем как есть
-      priceInRub = amount * commission;
+      // валюта товара уже рубли (или не задана иначе) — курс 1:1
+      rateToRub = 1;
     }
 
-    return +priceInRub.toFixed(2);
+    // Сколько реально уходит в GiftAPI — БЕЗ наценки: наценка это наша
+    // маржа, а не часть суммы, которая должна оказаться на Steam-кошельке.
+    const giftapiAmount = +(rubAmount / rateToRub).toFixed(2);
+
+    // Пользователь платит рублями, с наценкой сверху.
+    const priceRub = +(rubAmount * commission).toFixed(2);
+
+    return {
+      priceRub,
+      giftapiFields: {
+        ...fields,
+        [amountFieldDef.code]: giftapiAmount,
+        __rubAmountPaid: rubAmount,
+      },
+      estimatedGiftapiAmount: giftapiAmount,
+      estimatedGiftapiCurrency: product.currency,
+    };
   }
 
-  /**
-   * Создать заказ с платежом через Т-Банк (эквайринг).
-   * Поддерживает смешанную корзину:
-   * - товары старого каталога (Position, по gameId/positionId)
-   * - товары GiftAPI (по giftapiProductId)
-   *
-   * Для GiftAPI-товаров цена ВСЕГДА берётся из своей БД (GiftApiProduct.price),
-   * а не из dto — иначе цену можно подделать на фронте.
-   */
+  async previewGiftapiPrice(
+    giftapiProductId: string,
+    fields: Record<string, any> | undefined,
+    quantity = 1,
+  ) {
+    const product = await this.prisma.giftApiProduct.findUnique({
+      where: { id: giftapiProductId },
+    });
+    if (!product) {
+      throw new NotFoundException(
+        `Товар GiftAPI ${giftapiProductId} не найден в БД`,
+      );
+    }
+    if (!product.isActive) {
+      throw new BadRequestException('Товар недоступен для заказа');
+    }
+
+    if (product.denominationType === 'custom') {
+      const resolution = await this.resolveCustomAmountPrice(product, fields);
+      return {
+        unitPrice: resolution.priceRub,
+        total: +(resolution.priceRub * quantity).toFixed(2),
+        currency: 'RUB',
+        estimatedGiftapiAmount: resolution.estimatedGiftapiAmount,
+        estimatedGiftapiCurrency: resolution.estimatedGiftapiCurrency,
+      };
+    }
+
+    if (product.price === null || product.price === undefined) {
+      throw new BadRequestException(
+        `У товара ${product.id} не задана цена (price is null)`,
+      );
+    }
+    const unitPrice = Number(product.price);
+    return {
+      unitPrice,
+      total: +(unitPrice * quantity).toFixed(2),
+      currency: 'RUB',
+    };
+  }
+
   async createPayment(dto: OrderDto, userId: string | null) {
     const positionItems = dto.items.filter((i) => !!i.positionId);
     const giftapiItems = dto.items.filter((i) => !!i.giftapiProductId);
@@ -150,8 +199,16 @@ export class OrderService {
 
       if (product.denominationType === 'custom') {
         // Товар без фиксированной цены (например, пополнение Steam на
-        // произвольную сумму) — цена считается из введённой суммы
-        item.price = await this.resolveCustomAmountPrice(product, item.fields);
+        // произвольную сумму, введённую в рублях) — цена и fields для
+        // GiftAPI считаются из введённой суммы.
+        const { priceRub, giftapiFields } = await this.resolveCustomAmountPrice(
+          product,
+          item.fields,
+        );
+        item.price = priceRub;
+        // ВАЖНО: подменяем fields на пересчитанные (сумма в валюте SKU) —
+        // именно они уйдут в GiftAPI при фулфилменте (см. handleGameOrderPayment).
+        item.fields = giftapiFields;
       } else {
         if (product.price === null || product.price === undefined) {
           throw new BadRequestException(
@@ -198,7 +255,8 @@ export class OrderService {
 
     const orderItemsData = dto.items.map((item: OrderItemDto) => {
       if (item.giftapiProductId) {
-        // GiftAPI: fields уже приходят с ключами по code поля, релейблинг не нужен
+        // GiftAPI: fields уже приходят с ключами по code поля, релейблинг не нужен.
+        // Для custom-деноминации fields уже подменены выше на пересчитанные.
         return {
           quantity: item.quantity,
           price: item.price,
@@ -246,12 +304,8 @@ export class OrderService {
       Amount: Math.round(total * 100),
       OrderId: order.id,
       Description: `Оплата заказа #${order.id}`,
-      // 'O' — одностадийная оплата, деньги списываются сразу же после
-      // AUTHORIZED (аналог capture:true из ЮKassa) — Confirm вызывать не нужно
       PayType: 'O',
-      // Data.description дублируется в тело нотификации (dto.Data.description) —
-      // используем её в handleWebhook, чтобы отличать этот заказ от пополнений
-      // Steam, не завися от других полей нотификации Т-Банка
+
       DATA: { description: `Оплата заказа #${order.id}` },
       NotificationURL: `${process.env.API_URL}/api/orders/status`,
       SuccessURL: `${process.env.CLIENT_URL}/order/${order.id}`,
@@ -273,25 +327,6 @@ export class OrderService {
     return { order, payment };
   }
 
-  /**
-   * Создать заказ товара из каталога GiftAPI
- с оплатой через Т-Банк
-   * (быстрая покупка одного товара вне корзины — "купить сейчас").
-   *
-   * Флоу:
-   * 1. Пользователь открывает каталог (GiftApiProduct из своей БД).
-   * 2. Цена берётся ИЗ СВОЕЙ БД (GiftApiProduct.price), а не от клиента —
-   *    иначе можно было бы подделать сумму на фронте.
-   * 3. Создаётся локальный заказ с реальной стоимостью (total != 0).
-   * 4. Возвращается платёж Т-Банка (PaymentURL), пользователь его оплачивает.
-   * 5. Только ПОСЛЕ нотификации со статусом CONFIRMED (см. handleGameOrderPayment)
-   *    заказ реально уходит в GiftAPI — деньги там списываются с баланса,
-   *    только когда деньги реально получены нами через Т-Банк.
-   *
-   * Примечание: логика дублирует price-lookup из createPayment. Если корзина
-   * теперь умеет отправлять GiftAPI-товары через createPayment, этот метод
-   * можно оставить только для сценария "купить в один клик" со страницы товара.
-   */
   async createGiftapiPayment(
     dto: CreateGiftApiPaymentDto,
     userId: string | null,
@@ -319,19 +354,22 @@ export class OrderService {
     }
 
     let unitPrice: number;
+
+    let itemFields: Record<string, any> = dto.fields ?? {};
+
     if (product.denominationType === 'custom') {
-      // Товар без фиксированной цены (например, пополнение Steam на
-      // произвольную сумму) — цена считается из введённой суммы
-      unitPrice = await this.resolveCustomAmountPrice(product, dto.fields);
+      const { priceRub, giftapiFields } = await this.resolveCustomAmountPrice(
+        product,
+        dto.fields,
+      );
+      unitPrice = priceRub;
+      itemFields = giftapiFields;
     } else {
       if (product.price === null || product.price === undefined) {
         throw new BadRequestException(
           `У товара ${product.id} не задана цена (price is null)`,
         );
       }
-      // ВНИМАНИЕ: GiftApiProduct.currency по умолчанию "USD", а платёж
-      // в Т-Банке создаётся в рублях. Для товаров с фиксированной ценой
-      // предполагается, что product.price уже хранится в рублях.
       if (product.currency !== 'RUB') {
         this.logger.warn(
           `GiftApiProduct ${product.id} имеет валюту ${product.currency}, ` +
@@ -375,7 +413,7 @@ export class OrderService {
           create: {
             quantity,
             price: unitPrice,
-            fields: dto.fields ?? {},
+            fields: itemFields,
             giftapiProduct: { connect: { id: product.id } },
           },
         },
@@ -389,8 +427,6 @@ export class OrderService {
     const payment = await this.tbankService.init({
       Amount: Math.round(total * 100),
       OrderId: order.id,
-      // Тот же формат описания, что и у обычных заказов —
-      // handleWebhook его уже умеет парсить и находить заказ по id
       Description: `Оплата заказа #${order.id}`,
       PayType: 'O',
       DATA: { description: `Оплата заказа #${order.id}` },
@@ -414,27 +450,10 @@ export class OrderService {
     return { order, payment };
   }
 
-  /**
-   * Обработчик HTTP-нотификации от Т-Банка.
-   * ВАЖНО: контроллер должен вернуть именно строку "OK" (без кавычек/JSON)
-   * с HTTP 200 — иначе Т-Банк посчитает нотификацию неуспешной и будет
-   * ретраить её раз в час на протяжении суток, потом раз в сутки — месяц.
-   * Пример контроллера (см. order.controller.ts, POST /orders/status):
-   *
-   *   @Post('status')
-   *   async updateStatus(@Body() dto: PaymentStatusDto, @Res() res: Response) {
-   *     await this.orderService.updateStatus(dto);
-   *     res.status(200).send('OK');
-   *   }
-   */
   async updateStatus(dto: PaymentStatusDto): Promise<void> {
     this.logger.log(
       `Получена нотификация Т-Банка: ${dto.Status} (order ${dto.OrderId})`,
     );
-
-    // КРИТИЧНО: проверяем подлинность нотификации. Без этой проверки любой,
-    // кто знает формат payload, может дёрнуть эндпоинт и обмануть систему,
-    // что деньги якобы получены — раньше (на ЮKassa) эта проверка отсутствовала.
     if (!this.tbankService.verifyNotificationToken(dto as any)) {
       this.logger.error(
         `Невалидный Token в нотификации для заказа ${dto.OrderId} — запрос отклонён`,
@@ -455,16 +474,9 @@ export class OrderService {
       return;
     }
 
-    // При одностадийной оплате (PayType='O') Т-Банк присылает подряд
-    // AUTHORIZED и CONFIRMED — деньги реально захвачены только на CONFIRMED,
-    // поэтому фулфилмент запускаем строго по этому статусу.
     if (dto.Status !== 'CONFIRMED') {
       return;
     }
-
-    // Steam-пополнение теперь идёт через тот же generic GiftAPI-флоу, что и
-    // любой другой товар (SteamOrderService/DonateHub-пайплайн выведен из
-    // эксплуатации) — отдельная ветка по description больше не нужна.
     await this.handleGameOrderPayment(dto.OrderId);
   }
 
@@ -513,22 +525,10 @@ export class OrderService {
     this.logger.log(
       `Заказ ${orderId} оплачен, type: ${order.type}, isGiftapi: ${isGiftapi}, manualStatus: ${order.manualStatus ?? 'n/a'}`,
     );
-
-    // ── Ручные заказы обрабатываются ПЕРВЫМИ и полностью отдельно от AUTO.
-    // Ручной заказ (MANUAL) — это осознанный выбор "оператор выполняет вручную",
-    // даже если в нём лежит GiftAPI-товар. Поэтому:
-    // - в GiftAPI НИЧЕГО не отправляем (иначе задвоится: и GiftAPI спишет
-    //   наш баланс, и оператор потом выполнит то же самое руками);
-    // - в DonateHub тоже не отправляем;
-    // - оператора уведомляем ВСЕГДА, даже если в заказе только GiftAPI-позиции.
     if (isManual) {
       this.gateway.notifyNewManualOrder(order);
       return;
     }
-
-    // ── Дальше — только автоматические (AUTO) заказы.
-    // Деньги реально получены через Т-Банк (статус CONFIRMED) — теперь можно
-    // отправлять GiftAPI-позиции заказа в GiftAPI.
     if (isGiftapi) {
       for (const item of giftapiItems) {
         if (!item.giftapiProduct) continue;

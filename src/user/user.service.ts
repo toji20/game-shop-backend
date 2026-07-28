@@ -25,6 +25,7 @@ export class UserService {
             items: {
               include: {
                 position: true,
+                giftapiProduct: true,
                 game: true,
               },
             },
